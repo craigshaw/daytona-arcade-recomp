@@ -7,6 +7,15 @@ before changing projection, scenery selection or launcher. Work follows the desi
 baseline has every enhancement off; widescreen captures are comparisons with
 that baseline, not MAME parity claims.
 
+The 4 October 2026 disk cleanup removed bulk local raw captures, frame logs
+and redundant PNGs. Compact results, commands, hashes, cabinet snapshots
+and representative images remain. Recorded counts below describe historical
+runs. Use fresh output directories when repeating validation; `--resume`
+and `--report-only` require complete captures and cannot restore these
+pruned archives. The old pre-change probe executable was also removed;
+its native-regression results remain recorded, but rerunning that historical
+comparison requires rebuilding the matching earlier version.
+
 ## Run the comparison
 
 Regenerate the game from the updated hook seeds, then build the capture

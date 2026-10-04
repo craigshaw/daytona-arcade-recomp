@@ -131,10 +131,13 @@ The proof still decodes original tile layers, so their small existing cost
 is included. Software performance was not separately benchmarked.
 
 Local evidence: `traces/panorama-proof/validated/manifest.json`, per-job
-commands, scroll logs and captures, `checks.json`, `baseline-checks.json`
-and `benchmarks.json`.
+commands, `checks.json`, `baseline-checks.json` and `benchmarks.json`.
 The local `traces/panorama-proof/index.html` provides before/after images
-and consecutive-frame playback. Captures remain untracked.
+and consecutive-frame playback. The 4 October disk cleanup retained those
+viewer PNGs and compact results, but removed raw frames, frame logs and
+other captures. Full validation must use a fresh output directory; the
+pruned archive cannot be resumed or used as a complete raw baseline.
+Captures remain untracked.
 
 Follow-up extraction found complete original 2048-pixel panoramas: three
 verified race sets plus a fourth ROM entry whose use is unconfirmed. See

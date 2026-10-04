@@ -2,6 +2,19 @@
 
 ## Current state
 
+**Local capture archives pruned (4 Oct 2026).** Work through the panorama
+proof and original-art extraction is committed and pushed on
+`widescreen-32x9` (`a06e33c`). Removed 10.54 GiB of ignored raw frames,
+tile dumps, frame logs, redundant PNGs and an obsolete probe executable.
+Kept ROMs, builds, dependencies, cabinet snapshots, compact measurements,
+the original-art gallery, three minimal extraction snapshots, representative
+scenery images and the panorama comparison/playback viewer. Historical
+capture counts below describe completed runs, not files still on disk.
+All 400 protected files retain their hashes; the reduced source snapshots
+regenerate all 39 artwork PNGs and their source record byte-identically.
+Reproduce full validation into a fresh output directory; do not resume or
+rebuild reports from these pruned archives. No original-art integration yet.
+
 **Deluxe '93 ROM availability verified (4 Oct 2026).** The supplied
 `roms/daytona93.zip` is a split set: all 12 revision-specific files pass
 the importer manifest's sizes and recomputed CRC32 values. The other 18

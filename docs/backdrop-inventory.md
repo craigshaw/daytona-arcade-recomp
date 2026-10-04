@@ -85,6 +85,17 @@ PNGs, all 32 sections, source-address/hash records and a ZIP are written
 to the artwork directory. Initial capture manifests and the additional
 source captures record their respective executable hashes and commands.
 
+The 4 October disk cleanup retained the artwork gallery and ZIP, compact
+results, and the three minimal frame-3600 source snapshots (characters,
+palette, layer-2 indices and selector metadata). Bulk captures were removed.
+The retained sources can regenerate the artwork without another replay:
+
+```powershell
+python scripts/extract_backdrop_sources.py --sources traces/backdrop-inventory/sources --output traces/backdrop-artwork-repeat
+```
+
+Use a fresh output directory for any full capture/validation rerun.
+
 ## Implication for widescreen
 
 Reusing the complete originals through the panorama cache is now the
