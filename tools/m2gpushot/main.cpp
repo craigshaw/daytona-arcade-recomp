@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
     uint64_t every = 0, dump_from = 0, bench_from = 0;
     int scale = 1;
     double aspect = 0;
+    bool panorama_original = false;
     bool hud_edges = false, stretch = false, bench = false, original_selection = false, panorama = false, panorama_sweep = false, panorama_only = false;
     for (int i = 3; i < argc; i++) {
         if (!std::strcmp(argv[i], "--draw-budget") && i + 1 == argc) {
@@ -60,6 +61,7 @@ int main(int argc, char **argv) {
         if (!std::strcmp(argv[i], "--stretch-backdrop")) stretch = true;
         if (!std::strcmp(argv[i], "--original-selection")) original_selection = true;
         if (!std::strcmp(argv[i], "--panorama-proof")) panorama = true;
+        if (!std::strcmp(argv[i], "--panorama-original")) panorama_original = true;
         if (!std::strcmp(argv[i], "--panorama-sweep")) panorama_sweep = true;
         if (!std::strcmp(argv[i], "--panorama-only")) panorama_only = true;
     }
@@ -67,7 +69,7 @@ int main(int argc, char **argv) {
         if (!std::strcmp(argv[i], "--hud-edges") || !std::strcmp(argv[i], "--stretch-backdrop") ||
             !std::strcmp(argv[i], "--bench") || !std::strcmp(argv[i], "--original-selection") ||
             !std::strcmp(argv[i], "--panorama-proof") || !std::strcmp(argv[i], "--panorama-sweep") ||
-            !std::strcmp(argv[i], "--panorama-only")) { i--; continue; }
+            !std::strcmp(argv[i], "--panorama-only") || !std::strcmp(argv[i], "--panorama-original")) { i--; continue; }
         if (!std::strcmp(argv[i], "--aspect")) {
             double a = 0, b = 0;
             if (std::sscanf(argv[i + 1], "%lf:%lf", &a, &b) == 2 && b > 0) aspect = a / b;
@@ -89,6 +91,10 @@ int main(int argc, char **argv) {
                 return 2;
             }
         }
+    }
+    if (panorama && panorama_original) {
+        std::fprintf(stderr, "choose either --panorama-proof or --panorama-original\n");
+        return 2;
     }
     if (!bench && (dump_dir.empty() || !every)) {
         std::fprintf(stderr, "m2gpushot: --dump DIR and --every N (or --bench) are needed\n");
@@ -138,6 +144,7 @@ int main(int argc, char **argv) {
     try {
         rt::GameLoop game(dir);
         game.board().video().panorama().enable(panorama);
+        game.board().video().panorama().original = panorama_original;
         game.board().video().panorama().sweep = panorama_sweep;
         game.board().video().panorama().only = panorama_only;
         tools::SkyLog sky_log(sky_log_path);

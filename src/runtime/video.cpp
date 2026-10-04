@@ -400,6 +400,8 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
     gpu_polys_ = &polys;
     gpu_windows_ = windows;
     gpu_mem_ = mem;
+    if (panorama_.original && panorama_.source_valid)
+        panorama_.source_valid = panorama_.matches_live(tile_ram_, char_ram_);
     profile_ = {};
     uint64_t before = ticks();
     // Retain the reference's sticky palette-dirty behavior. palette_w marks
@@ -544,7 +546,7 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         if (!render_done_) coverage_ = 0; // no 3D this frame: a 2D screen
         fill_margins();
     }
-    const bool panorama_only = panorama_active() && panorama_.only;
+    const bool panorama_only = panorama_.only; // capture-only: isolate legacy or extended background
     if (render_done_ && !panorama_only) copy_trans(raster_.pixels(), size_t(raster_.stride()), width());
     profile_.composite += ticks() - before;
 #ifndef M2_VITA_RENDER_OPT
@@ -646,6 +648,39 @@ void Video::copy_front_hud_to_edges(std::vector<uint32_t> &out) {
         }
 }
 
+// Original-art sky pair only. Native overlay layers still use draw(), and
+// layer 3 / layer-2 filler rows retain their live pixels. Normal window masks
+// extend their edge selection into the margins; vertical splits keep the
+// original layer choice and wrapped source Y (not the proof's clamping).
+uint16_t Video::panorama_background_pen(int x, int y) const {
+    for (int layer = 2; layer <= 3; ++layer) {
+        const unsigned h = tile(0x5000 + layer), v = tile(0x5004 + layer), ctrl = tile(0x5006);
+        if (v & 0x8000) continue;
+        int source = layer;
+        const bool split = (ctrl & 0x6000) != 0;
+        if (split) {
+            if (layer == 3) continue;
+            const int boundary = int((0u - v) & 511);
+            source = ((0u - v) & 512) ? 2 : 3;
+            if (y >= boundary) source ^= 1;
+        } else {
+            const int edge = std::clamp(x, 0, W - 1);
+            unsigned mask = tile(0x6800 + unsigned(y) * 4 + unsigned(edge >> 7));
+            if (layer & 1) mask = ~mask;
+            if (mask & (0x8000u >> ((edge >> 3) & 15))) continue;
+        }
+        const int sy = (y + int(v)) & 511;
+        const unsigned hs = (h & 0x8000) ? tile(0x4000 + 0x200 * layer + y) : h;
+        const size_t offset = size_t(sy) * 512 + (unsigned(x - int(hs)) & 511);
+        uint16_t pixel = uint16_t(pixmap_[source][offset] | (flags_[source][offset] & 1) << 15);
+        if (source == 2 && sy >= Panorama::SourceY && sy < Panorama::SourceY + Panorama::SourceHeight)
+            pixel = panorama_.original_pixel(x, sy);
+        if (split && (pixel & 0x8000)) continue; // opaque split still checks category
+        return pixel & 4095;
+    }
+    return 0;
+}
+
 // Widescreen side margins, under the 3D layer. On a 2D screen (car and
 // circuit select, titles: see scene()) each row carries its own edge colours
 // out: the art covers only 496 columns. Behind a 3D scene (the race, the
@@ -657,6 +692,21 @@ void Video::copy_front_hud_to_edges(std::vector<uint32_t> &out) {
 void Video::fill_margins() {
     const bool scene = this->scene();
     const int out = width();
+    if (panorama_active() && panorama_.original) {
+        // Preserve both overlay layers in their original priority and native
+        // position, including opaque black pixels; only the sky pair widens.
+        panorama_overlay_.assign(size_t(W) * H, 0u);
+        for (int layer = 1; layer >= 0; --layer) draw(panorama_overlay_, layer << 1, 0);
+        for (int y = 0; y < H; ++y) for (int x = 0; x < out; ++x) {
+            uint32_t pixel = pens_[panorama_background_pen(x - margin_, y)];
+            if (x >= margin_ && x < margin_ + W) {
+                const uint32_t overlay = panorama_overlay_[size_t(y) * W + size_t(x - margin_)];
+                if (overlay) pixel = overlay;
+            }
+            screen_[size_t(y) * size_t(out) + size_t(x)] = pixel;
+        }
+        return;
+    }
     if (panorama_active()) {
         const unsigned vertical = panorama_.vertical;
         for (int y = 0; y < H; ++y) for (int x = 0; x < out; ++x)

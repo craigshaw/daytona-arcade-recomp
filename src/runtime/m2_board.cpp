@@ -167,7 +167,7 @@ void M2Board::vblank_end() {
     m.tex0 = reinterpret_cast<const uint32_t *>(tex0_.data());
     m.tex1 = reinterpret_cast<const uint32_t *>(tex1_.data());
     m.tex_generation = tex_generation_;
-    if (video_->panorama().enabled) {
+    if (video_->panorama().enabled || video_->panorama().original) {
         // Revision A proof: sample alongside the tile registers at vblank,
         // not after the CPU has begun preparing the following frame.
         auto &p = video_->panorama();
@@ -176,6 +176,8 @@ void M2Board::vblank_end() {
         p.horizontal = read_word(0x100a004);
         p.vertical = read_word(0x100a00c);
         p.course = std::string_view(M2_ROMSET) == "daytona" ? read_byte(0x501460) : 255;
+        p.source_valid = p.original && p.course == 0 && read_dword(0x5fe5e4) == 0x2600020;
+        if (p.source_valid) p.source_valid = p.load_original(img_.main_data);
     }
     video_->screen_update(geo_->polys, geo_->windows(), m);
     ++frame_;
@@ -423,7 +425,7 @@ void M2Board::write_byte(uint32_t addr, uint8_t data) {
 
 void M2Board::write_word(uint32_t addr, uint16_t data) {
     addr &= ~1u;
-    if ((addr == 0x501308 || addr == 0x100a004) && video_->panorama().enabled &&
+    if ((addr == 0x501308 || addr == 0x100a004) && (video_->panorama().enabled || video_->panorama().original) &&
         std::string_view(M2_ROMSET) == "daytona") {
         auto &sky = video_->panorama();
         // Latch when the game writes its scroll value, then when that value

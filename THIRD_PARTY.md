@@ -55,3 +55,11 @@ is part of the game or linked into it.
 | [DirectXShaderCompiler](https://github.com/microsoft/DirectXShaderCompiler) | v1.9.2609 (`linux_dxc_2026_09_28`) | University of Illinois/NCSA | HLSL to SPIR-V and DXIL |
 | [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross) | Ubuntu 24.04's package | Apache-2.0 | SPIR-V to MSL |
 
+The 4 October 2026 original-panorama build uses the official Windows DXC
+v1.9.2609 (`dxc_2026_09_29`) and SPIRV-Cross at
+`aa217aeb6c9f0ace7a0ab233b28807edf45eb165`, built unmodified from its official
+source archive under ignored `extern/`. Same tool-only licences and uses
+as above; neither is linked into the game. The script's Docker fallback
+still uses the versions in the table. Native invocation now uses argument
+lists and creates the output directory without relying on a POSIX shell.
+

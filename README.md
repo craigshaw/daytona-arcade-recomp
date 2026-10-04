@@ -110,6 +110,9 @@ opens first:
   with Default distance and Automatic budget retains the game's 5,000.
   See [widescreen validation](docs/widescreen-validation.md) for measurements
   and the remaining background/road limitations. Start.
+  An [original panorama experiment](docs/original-panorama.md) is available
+  through the capture tools for Revision A Beginner; it is not yet a launcher
+  setting.
 - **Controls**: bind every arcade control to a key, a gamepad button or
   axis, and a wheel or joystick input (experimental; click, then press). Triggers, sticks,
   wheels and pedals are analogue. Wheels, pedals and shifters work as

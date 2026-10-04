@@ -183,6 +183,8 @@ void GpuRenderer::shutdown() {
     if (panorama_sampler_) SDL_ReleaseGPUSampler(dev_, panorama_sampler_), panorama_sampler_ = nullptr;
     if (panorama_) SDL_ReleaseGPUTexture(dev_, panorama_), panorama_ = nullptr;
     panorama_uploads_ = 0;
+    original_panorama_instance_ = 0;
+    tilepix_extended_ = false;
     if (front_) SDL_ReleaseGPUTexture(dev_, front_), front_ = nullptr;
     if (depth_) SDL_ReleaseGPUTexture(dev_, depth_), depth_ = nullptr;
     if (vbuf_) SDL_ReleaseGPUBuffer(dev_, vbuf_), vbuf_ = nullptr;
@@ -352,6 +354,41 @@ void GpuRenderer::build(const rt::Video &video, int w, int h, int scale) {
 }
 
 void GpuRenderer::prepare_panorama(SDL_GPUCommandBuffer *cmd, const rt::Video &video) {
+    if (video.panorama().original) {
+        if (!video.panorama_active() || original_panorama_instance_ == video.instance()) return;
+        const uint32_t bytes = rt::Panorama::Width * rt::Panorama::SourceHeight * 2;
+        if (!tilepix_extended_) {
+            SDL_GPUBufferCreateInfo info{};
+            info.usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
+            info.size = kTilePixBytes + bytes;
+            SDL_GPUBuffer *buffer = SDL_CreateGPUBuffer(dev_, &info);
+            if (!buffer) throw std::runtime_error(std::string("panorama buffer: ") + SDL_GetError());
+            SDL_ReleaseGPUBuffer(dev_, tilepix_);
+            tilepix_ = buffer;
+            tilepix_extended_ = true;
+            tile_instance_ = 0; // the replacement needs all four ordinary layers too
+        }
+        SDL_GPUTransferBufferCreateInfo info{};
+        info.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+        info.size = bytes;
+        auto *upload = SDL_CreateGPUTransferBuffer(dev_, &info);
+        void *data = upload ? SDL_MapGPUTransferBuffer(dev_, upload, false) : nullptr;
+        if (!data) {
+            if (upload) SDL_ReleaseGPUTransferBuffer(dev_, upload);
+            throw std::runtime_error(std::string("original panorama upload: ") + SDL_GetError());
+        }
+        std::memcpy(data, video.panorama().indices.data(), bytes);
+        SDL_UnmapGPUTransferBuffer(dev_, upload);
+        auto *copy = SDL_BeginGPUCopyPass(cmd);
+        SDL_GPUTransferBufferLocation source{upload, 0};
+        SDL_GPUBufferRegion destination{tilepix_, kTilePixBytes, bytes};
+        SDL_UploadToGPUBuffer(copy, &source, &destination, false);
+        SDL_EndGPUCopyPass(copy);
+        SDL_ReleaseGPUTransferBuffer(dev_, upload);
+        original_panorama_instance_ = video.instance();
+        ++panorama_uploads_;
+        return;
+    }
     if (panorama_ || !video.panorama_active()) return;
     SDL_GPUTextureCreateInfo ti{};
     ti.type = SDL_GPU_TEXTURETYPE_2D;
@@ -405,7 +442,7 @@ void GpuRenderer::render(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *target, int 
     build(video, w, h, scale);
     const uint32_t vert_bytes = uint32_t(verts_.size() * sizeof(PolyVertex));
     if (!ensure(w, h, scale, vert_bytes)) return;
-    const bool panorama = video.panorama_active();
+    const bool panorama = video.panorama_active() && !video.panorama().original;
     prepare_panorama(cmd, video);
 
     // The tilemap pixmaps' rows to upload, per layer: the span of the tile
@@ -485,6 +522,8 @@ void GpuRenderer::render(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *target, int 
     tiledata_words_[0] = uint32_t(video.margin());
     tiledata_words_[1] = uint32_t(video.backdrop()); // Edges 0, Sky 1, Stretch 2, as m2.hlsl
     tiledata_words_[2] = uint32_t(scale);
+    tiledata_words_[3] = uint32_t(video.panorama_active() && video.panorama().original);
+    tiledata_words_[4] = uint32_t(video.panorama().scroll_x());
     std::memcpy(&tiledata_words_[kTileHeader], video.gpu_pens(), rt::Video::kGpuPens * 4);
     std::memcpy(&tiledata_words_[kTileHeader + rt::Video::kGpuPens], video.gpu_tile_words(), rt::Video::kGpuTileWords * 2);
     const uint32_t tiledata_at = at;
@@ -560,7 +599,7 @@ void GpuRenderer::render(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *target, int 
         SDL_DrawGPUPrimitives(pass, 6, 1, 0, 0);
     };
     draw_quad(panorama ? quad_pipe_ : back_pipe_, panorama);
-    const bool panorama_only = panorama && video.panorama().only;
+    const bool panorama_only = video.panorama().only;
     if (!verts_.empty() && !panorama_only) {
         SDL_BindGPUGraphicsPipeline(pass, poly_pipe_);
         SDL_GPUBufferBinding vb{vbuf_, 0};

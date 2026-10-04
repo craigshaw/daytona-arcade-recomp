@@ -2,6 +2,42 @@
 
 ## Current state
 
+**Original panorama milestone implemented (4 Oct 2026), capture tools only.**
+Revision A Beginner now uses the original ROM's complete 2048x392 sky via
+`--panorama-original`. Cache palette indices/category (1.53 MiB CPU and GPU,
+plus CPU validation records), upload once per game instance and sample
+inside the existing shared tile shader. Live palette, layer-3 splits,
+fillers, overlays and foreground/HUD stay on their original paths. The
+normal launcher is unchanged. Native view and unsupported courses/revisions
+fall back; stretching applies only when this mode is inactive.
+
+Selector/scroll checks alone failed at loading frame 2580: the game had
+selected Beginner before uploading its sky. Readiness now also matches the
+visible streamed map columns and referenced character data against the ROM.
+No frame-number delays, guest writes or replacement PNG dependency.
+
+25 replay jobs / 1,049 captures / 18 comparison groups pass: 16:9 and 32:9
+centres, 100 exact CPU/GPU background pairs, aspect crops, consecutive wrap
+and loading transitions, four cameras, full-frame controls, previous-binary
+regression, native view, supersampling, HUD and other-course fallback.
+All 3,001 frames in the 3000..6000 race interval stay active and ready;
+the natural full-phase wrap advances by two texels, with no fallback flicker.
+The replay has no active sky-colour fade; `m2panoramacheck` separately proves
+four synthetic palette levels over two game instances, all exact CPU/GPU
+and original-centre matches, one upload per instance, no guest RAM writes.
+Release builds and targeted CTests pass. SPIR-V/DXIL/MSL regenerated from
+one HLSL source; only Direct3D 12 runtime tested. Native shader-script calls
+now work on Windows; compiler provenance is in `THIRD_PARTY.md`.
+Fixed-affinity warmed benchmarks show renderer CPU 0.25/0.26 ms versus
+0.23/0.24 ms, with variable GPU wait. Unpinned runs had a whole-system
+timing shift; retained both sets, no GPU timestamp or speedup claim.
+
+Procedure and limitations: `docs/original-panorama.md`; ignored gallery and
+compact evidence: `traces/original-panorama/`. The new runner discards raw
+captures/frame logs after each job. Next: Advanced/Expert original assets,
+Deluxe '93, other GPU backends and live launcher integration. This milestone
+does not make a new MAME-parity claim.
+
 **Local capture archives pruned (4 Oct 2026).** Work through the panorama
 proof and original-art extraction is committed and pushed on
 `widescreen-32x9` (`a06e33c`). Removed 10.54 GiB of ignored raw frames,

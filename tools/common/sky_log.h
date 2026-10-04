@@ -25,6 +25,10 @@ public:
                 << ",\"panorama_phase\":" << v.panorama().phase
                 << ",\"panorama_valid\":" << (v.panorama().phase_valid ? "true" : "false")
                 << ",\"panorama_vertical\":" << v.panorama().vertical
+                << ",\"panorama_original\":" << (v.panorama().original ? "true" : "false")
+                << ",\"panorama_source_valid\":" << (v.panorama().source_valid ? "true" : "false")
+                << ",\"palette_generation\":" << v.system24_palette_generation()
+                << ",\"sky_colour\":" << v.system24_pen(v.system24_pixels(2)[0])
                 << ",\"scroll\":[";
         for (unsigned i = 0; i < 8; ++i) {
             if (i) stream_ << ',';

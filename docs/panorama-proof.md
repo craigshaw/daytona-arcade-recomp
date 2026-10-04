@@ -146,4 +146,8 @@ streaming window, not the entire original asset. New artwork is therefore
 not yet justified. Next: try the complete originals in the cache, integrate
 palette fades and additional back-layer overlays, and validate alignment,
 wraps and transitions before exposing a setting. The sampling/cache approach
-is proven for the test fixture; original-art integration remains to be done.
+is proven for the test fixture; original-art integration is recorded separately below.
+
+The subsequent [original panorama milestone](original-panorama.md) implements
+that next step for Revision A Beginner, retaining the existing palette and
+background-layer composition. The test-art proof above remains separate.

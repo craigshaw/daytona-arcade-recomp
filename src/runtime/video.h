@@ -57,7 +57,8 @@ public:
     Panorama &panorama() { return panorama_; }
     const Panorama &panorama() const { return panorama_; }
     bool panorama_active() const {
-        return panorama_.enabled && panorama_.phase_valid && margin_ && panorama_.course == 0 && scene() &&
+        return (panorama_.original ? panorama_.source_valid : panorama_.enabled) &&
+               panorama_.phase_valid && margin_ && panorama_.course == 0 && scene() &&
                !(panorama_.vertical & 0x8000) && (panorama_.vertical & 0x6000) <= 0x2000 &&
                !(panorama_.horizontal & 0x8000);
     }
@@ -198,7 +199,9 @@ private:
     bool scene() const { return gpu_windows_ <= 1 && coverage_ >= 15; }
     bool stretch_backdrop_ = false;
     Panorama panorama_;
+    std::vector<uint32_t> panorama_overlay_;
     void fill_margins();
+    uint16_t panorama_background_pen(int x, int y) const;
     bool hud_edges_ = false;
     bool hud_on_ = false;                      // the rasterizer is moving the HUD overlay polygons
     void set_raster_hud_moves();

@@ -66,6 +66,8 @@ private:
     SDL_GPUTexture *panorama_ = nullptr;
     SDL_GPUSampler *panorama_sampler_ = nullptr;
     uint64_t panorama_uploads_ = 0;
+    uint64_t original_panorama_instance_ = 0;
+    bool tilepix_extended_ = false;
     SDL_GPUTexture *depth_ = nullptr;
     int depth_w_ = 0, depth_h_ = 0, front_w_ = 0, front_h_ = 0;
     SDL_GPUBuffer *vbuf_ = nullptr, *qbuf_ = nullptr;

@@ -244,6 +244,15 @@ window, not the full source artwork. First try caching the complete original
 assets before commissioning replacements; palette and split-layer handling
 still need integration. See [backdrop inventory](backdrop-inventory.md).
 
+**Original panorama milestone (4 Oct 2026):** the opt-in Revision A Beginner
+path now decodes the original sky from ROM into cached 16-bit palette
+indices. It replaces only layer-2 source pixels in the existing tile pass,
+retaining live palette fades, split/filler layers and overlays. Matching
+the live streamed map and character data prevents early activation during
+loading. Original view and unsupported states retain the existing renderer.
+The launcher remains unchanged pending wider course/revision validation.
+See [original panorama](original-panorama.md) for reproduction and limits.
+
 ## Audio, inputs, force feedback, link play
 
 Nothing here is interpreted either. A board whose CPU runs a program gets that program statically recompiled, like the i960 and the TGP; a board whose behaviour is a fixed protocol gets native C++ for that protocol (HLE). If an HLE turns out not to be exact, the board's own program is recompiled instead; there is no fallback to an interpreter.

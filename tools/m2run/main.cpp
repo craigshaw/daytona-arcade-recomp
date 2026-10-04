@@ -101,6 +101,7 @@ int main(int argc, char **argv) {
     bool link_sync = false, native_check = false;
     uint64_t every = 0, dump_from = 0;
     double aspect = 0;
+    bool panorama_original = false;
     int frame_skip = 0;
     bool hud_edges = false, stretch_backdrop = false, original_selection = false, panorama = false, panorama_sweep = false, panorama_only = false;
     uint32_t draw_budget = 0;
@@ -116,6 +117,7 @@ int main(int argc, char **argv) {
         if (!std::strcmp(argv[i], "--draw-order-only")) rt::EnhanceDiagnostics::draw_order_only = true;
         if (!std::strcmp(argv[i], "--original-selection")) original_selection = true;
         if (!std::strcmp(argv[i], "--panorama-proof")) panorama = true;
+        if (!std::strcmp(argv[i], "--panorama-original")) panorama_original = true;
         if (!std::strcmp(argv[i], "--panorama-sweep")) panorama_sweep = true;
         if (!std::strcmp(argv[i], "--panorama-only")) panorama_only = true;
     }
@@ -124,7 +126,7 @@ int main(int argc, char **argv) {
             !std::strcmp(argv[i], "--link-sync") || !std::strcmp(argv[i], "--native-audio-check") ||
             !std::strcmp(argv[i], "--draw-order-only") || !std::strcmp(argv[i], "--original-selection") ||
             !std::strcmp(argv[i], "--panorama-proof") || !std::strcmp(argv[i], "--panorama-sweep") ||
-            !std::strcmp(argv[i], "--panorama-only")) { i--; continue; }
+            !std::strcmp(argv[i], "--panorama-only") || !std::strcmp(argv[i], "--panorama-original")) { i--; continue; }
         if (!std::strcmp(argv[i], "--inputs")) inputs_path = argv[i + 1];
         else if (!std::strcmp(argv[i], "--dump")) dump_dir = argv[i + 1];
         else if (!std::strcmp(argv[i], "--every")) every = std::strtoull(argv[i + 1], nullptr, 10);
@@ -151,12 +153,15 @@ int main(int argc, char **argv) {
     }
 
     try {
+        if (panorama && panorama_original)
+            throw std::runtime_error("choose either --panorama-proof or --panorama-original");
         if (rt::EnhanceDiagnostics::draw_order_only && rt::Enhance::draw_distance <= 0)
             throw std::runtime_error("--draw-order-only needs positive --draw-distance");
         tools::SceneryLog scenery_log(scenery_log_path);
         tools::SkyLog sky_log(sky_log_path);
         rt::GameLoop game(dir, !native_check);
         game.board().video().panorama().enable(panorama);
+        game.board().video().panorama().original = panorama_original;
         game.board().video().panorama().sweep = panorama_sweep;
         game.board().video().panorama().only = panorama_only;
         game.set_draw_budget(draw_budget);
