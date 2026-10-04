@@ -544,7 +544,8 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         if (!render_done_) coverage_ = 0; // no 3D this frame: a 2D screen
         fill_margins();
     }
-    if (render_done_) copy_trans(raster_.pixels(), size_t(raster_.stride()), width());
+    const bool panorama_only = panorama_active() && panorama_.only;
+    if (render_done_ && !panorama_only) copy_trans(raster_.pixels(), size_t(raster_.stride()), width());
     profile_.composite += ticks() - before;
 #ifndef M2_VITA_RENDER_OPT
     if (!hud_edges) {
@@ -555,7 +556,9 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
     }
 #endif
     before = ticks();
-    if (hud_edges && hud_on_) {
+    if (panorama_only) {
+        // The isolated background is captured for CPU/GPU sampling checks.
+    } else if (hud_edges && hud_on_) {
         copy_front_hud_to_edges(screen_);
     } else {
         copy_trans(sys24_.data(), W, W, margin_);
@@ -654,6 +657,12 @@ void Video::copy_front_hud_to_edges(std::vector<uint32_t> &out) {
 void Video::fill_margins() {
     const bool scene = this->scene();
     const int out = width();
+    if (panorama_active()) {
+        const unsigned vertical = panorama_.vertical;
+        for (int y = 0; y < H; ++y) for (int x = 0; x < out; ++x)
+            screen_[size_t(y) * size_t(out) + size_t(x)] = panorama_.sample(x, y, margin_, vertical);
+        return;
+    }
     const uint32_t sky = screen_[size_t(margin_)];
     if (scene && stretch_backdrop_) {
         stretch_row_.resize(size_t(W));

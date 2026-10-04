@@ -167,6 +167,16 @@ void M2Board::vblank_end() {
     m.tex0 = reinterpret_cast<const uint32_t *>(tex0_.data());
     m.tex1 = reinterpret_cast<const uint32_t *>(tex1_.data());
     m.tex_generation = tex_generation_;
+    if (video_->panorama().enabled) {
+        // Revision A proof: sample alongside the tile registers at vblank,
+        // not after the CPU has begun preparing the following frame.
+        auto &p = video_->panorama();
+        p.phase = p.sweep ? uint16_t(frame_ * 512) : p.register_phase;
+        p.phase_valid = p.sweep || p.register_valid;
+        p.horizontal = read_word(0x100a004);
+        p.vertical = read_word(0x100a00c);
+        p.course = std::string_view(M2_ROMSET) == "daytona" ? read_byte(0x501460) : 255;
+    }
     video_->screen_update(geo_->polys, geo_->windows(), m);
     ++frame_;
 }
@@ -413,6 +423,18 @@ void M2Board::write_byte(uint32_t addr, uint8_t data) {
 
 void M2Board::write_word(uint32_t addr, uint16_t data) {
     addr &= ~1u;
+    if ((addr == 0x501308 || addr == 0x100a004) && video_->panorama().enabled &&
+        std::string_view(M2_ROMSET) == "daytona") {
+        auto &sky = video_->panorama();
+        // Latch when the game writes its scroll value, then when that value
+        // reaches the tile registers. Reading the live camera at present time
+        // can be a frame ahead of the picture and jumps at wrap boundaries.
+        if (addr == 0x501308) sky.pending_phase = read_word(0x5fe11a);
+        else {
+            sky.register_phase = sky.pending_phase;
+            sky.register_valid = ((sky.register_phase >> 5) & 511) == (data & 511);
+        }
+    }
     const Page &p = page(addr);
     const unsigned sh = (addr & 2) * 8;
     switch (p.kind) {

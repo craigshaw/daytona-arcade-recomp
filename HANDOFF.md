@@ -2,6 +2,73 @@
 
 ## Current state
 
+**Deluxe '93 ROM availability verified (4 Oct 2026).** The supplied
+`roms/daytona93.zip` is a split set: all 12 revision-specific files pass
+the importer manifest's sizes and recomputed CRC32 values. The other 18
+required shared files are present and verified in `roms/daytona.zip`:
+30/30 required files are available locally. The existing `daytona.zip`
+also already contained byte-identical '93-specific files under `daytona93/`;
+earlier assumptions that the '93 ROM was unavailable were incorrect.
+The importer reads one archive (and strips member folder prefixes), so the
+merged `daytona.zip` contains the complete set for a '93-configured importer;
+the new split ZIP alone is incomplete. No new '93 runtime validation yet.
+Verification evidence: ignored `traces/rom-verification/daytona93.json`.
+
+**Original backdrop inventory extracted (4 Oct 2026).** Revision A already
+has full 2048-pixel panoramas: Beginner 2048x392 (clouds/mountains/grass),
+Advanced 2048x344 (clouds), Expert 2048x432 (clouds/ocean), plus a fourth
+selector entry 2048x528 (sky/trees/green ground), whose in-game use is
+unconfirmed. Four art sets, eight 256-pixel sections each; not 135 assets
+despite that many distinct layer-2/3 RGB states in the capture sample.
+The game's 512-pixel tilemap is a streaming window onto the larger source.
+Earlier reasoning treating it as the complete artwork was incomplete.
+
+All 192 live tile-column comparisons and all three courses' character ROM
+upload comparisons pass. Three 9,000-frame course runs and 18,000 attract
+frames yield 300 snapshots of all four layers; course ID 3 was not seen.
+Source dumping leaves the three frame-3600 screenshots identical. New
+read-only capture flag `m2gpushot --dump-tiles DIR`; extraction scripts and
+procedure are in `docs/backdrop-inventory.md`. Ignored local gallery:
+`traces/backdrop-inventory/artwork/index.html`, with original PNGs, all
+32 sections, source/hash records and ZIP. No newly generated artwork and
+no original-art renderer integration in this step. Next candidate is reuse
+of these complete originals, then palette/fades, split layers and wrap
+validation. Replacement artwork is not yet justified. Deluxe '93 deferred.
+
+**Seamless panorama proof implemented (4 Oct 2026), opt-in capture tools only.**
+Revision A Beginner uses one original 2048x512 test image across 16:9 and
+32:9, repeat-U/clamp-V sampling, the existing background draw and shader.
+One 4 MiB CPU image plus one 4 MiB GPU texture, uploaded once per run.
+The normal launcher has no panorama option; original view, other courses
+and unsupported states retain the existing path. The proof replaces the
+complete back-layer composite; final art, palette/fade handling and extra
+back-layer overlays remain required before general use.
+
+Full camera phase at 0x5fe11a supplies 2048 texel positions instead of the
+tile register's masked 512. Observe writes to 0x501308 and 0x100a004 to
+latch the correct frame; direct frame-end reads were rejected because
+1,660 of 2,901 samples described a different camera state. No game RAM,
+register or emulated timing changes. This replay uses layer-2 vertical
+split mode (0x2000), so earlier normal-scroll-only notes are incomplete.
+
+28 capture jobs / 1,022 raw frames: 258 isolated software/GPU pairs and
+129 aspect-centre crops match exactly, including a full synthetic cycle.
+Real turns, all four cameras and natural full-phase wraps are captured.
+Both native controls, 120 default wide baseline frames and 28 inactive
+frames are identical. 2x supersampling repeats exact sky pixels. All
+3,001 race frames from 3000 through 6000 remain active/valid in each
+aspect/renderer run. Panorama/scenery/app-config CTests and Release builds
+of the capture tools and normal application pass. Warmed
+32:9 renderer CPU time is 0.21 ms/frame versus 0.21..0.22 default;
+there is no material overhead in these runs, not a GPU-timestamp result.
+
+Procedure, exact timings and limits: `docs/panorama-proof.md`. Ignored local
+viewer/evidence: `traces/panorama-proof/`. The runner resumed after fixing
+2x PNG export height (raw pixels/commands unchanged; runner hash migration
+is recorded in its manifest). Next: finished course artwork, palette fades
+and overlays, then other courses/backends and eventual Deluxe '93 testing.
+No new MAME parity or production-wide background claim is made.
+
 **Widescreen scenery and configurable budget implemented (4 Oct 2026).**
 Launcher Game > Enhancements now offers 32:9 and Automatic/Custom polygon
 budget. Automatic is `ceil(5000 * max(1, W / 496))`, with W at native

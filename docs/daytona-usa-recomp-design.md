@@ -226,6 +226,24 @@ possible frame. Deluxe '93 awaits its supplied ROM. See
 [widescreen validation](widescreen-validation.md) for the reproducible
 capture procedure, measurements and remaining limits.
 
+**Seamless panorama proof (4 Oct 2026):** an opt-in Revision A Beginner
+experiment uses one cached 2048x512 test image and the existing background
+quad shader, retaining full camera-derived scroll before the tile hardware's
+512-pixel wrap. Scroll state is latched at the game/tile-register writes so
+the picture does not sample the following frame's camera. It adds no scenery
+polygons or rendering pass. This is a headless proof with temporary original
+test art, not a new default or complete background replacement: palette
+fades and additional back-layer overlays need integration before release.
+See [panorama proof](panorama-proof.md) for evidence and limits.
+
+**Original backdrop inventory (4 Oct 2026):** subsequent extraction found
+four 2048-pixel panorama sets in Revision A's course-selector table, each
+assembled from eight 256-pixel sections. Three are verified in the races;
+the fourth's use is unconfirmed. The 512-pixel layer-2 tilemap is a streaming
+window, not the full source artwork. First try caching the complete original
+assets before commissioning replacements; palette and split-layer handling
+still need integration. See [backdrop inventory](backdrop-inventory.md).
+
 ## Audio, inputs, force feedback, link play
 
 Nothing here is interpreted either. A board whose CPU runs a program gets that program statically recompiled, like the i960 and the TGP; a board whose behaviour is a fixed protocol gets native C++ for that protocol (HLE). If an HLE turns out not to be exact, the board's own program is recompiled instead; there is no fallback to an interpreter.

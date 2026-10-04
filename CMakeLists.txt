@@ -281,6 +281,10 @@ target_link_libraries(traceinfo PRIVATE trace)
 
 enable_testing()
 
+add_executable(test_panorama tests/test_panorama.cpp)
+target_include_directories(test_panorama PRIVATE src)
+add_test(NAME panorama COMMAND test_panorama)
+
 add_executable(test_scenery tests/test_scenery.cpp src/runtime/enhance.cpp)
 target_include_directories(test_scenery PRIVATE src)
 add_test(NAME scenery COMMAND test_scenery)
