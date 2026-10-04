@@ -96,14 +96,20 @@ opens first:
   as the game; single buffered or every third frame draw less often, for slower
   machines; the game itself runs at full speed), and Skip launcher (start
   the game straight away next time; Esc still opens the launcher). Enhancements
-  (off by default): widescreen 16:10, 16:9 or 21:9, which shows more of the
+  (off by default): widescreen 16:10, 16:9, 21:9 or 32:9, which shows more of the
   scene at the sides with the HUD kept 4:3 in the centre, or with "HUD at
   the screen edges" (experimental) the lap times, position, condition panel and course map
   moved out to the sides (in a race the sky at the sides is plain blue, or
   with "Stretch tile background" the game's sky picture stretched across);
-  and
-  a draw distance slider for the scenery (default
-  is the game's own; shorter runs faster). Start.
+  a draw distance slider for scenery range (shorter runs faster); and a
+  polygon budget setting. Widescreen includes additional scenery beside
+  the view. **Automatic** scales the allowance with aspect ratio and keeps
+  any higher allowance from Further/Furthest. **Custom** replaces it with
+  your chosen value; return to Automatic to restore the calculated value.
+  Resolution and supersampling do not change the budget. Original view
+  with Default distance and Automatic budget retains the game's 5,000.
+  See [widescreen validation](docs/widescreen-validation.md) for measurements
+  and the remaining background/road limitations. Start.
 - **Controls**: bind every arcade control to a key, a gamepad button or
   axis, and a wheel or joystick input (experimental; click, then press). Triggers, sticks,
   wheels and pedals are analogue. Wheels, pedals and shifters work as

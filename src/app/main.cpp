@@ -395,6 +395,7 @@ int main(int argc, char **argv) {
             game->board().video().set_external_3d(cfg.renderer == "hardware" && gpu.ok(), true);
             game->set_stretch_backdrop(cfg.stretch_backdrop);
             rt::GameLoop::set_draw_distance(cfg.draw_distance);
+            game->set_draw_budget(cfg.draw_budget);
             while (pending >= frame_ns) {
                 game->run_frame(cfg.controls.sample(SDL_GetKeyboardState(nullptr), devices));
                 if (native_active) {

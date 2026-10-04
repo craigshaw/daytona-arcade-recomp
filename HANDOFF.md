@@ -2,6 +2,126 @@
 
 ## Current state
 
+**Widescreen scenery and configurable budget implemented (4 Oct 2026).**
+Launcher Game > Enhancements now offers 32:9 and Automatic/Custom polygon
+budget. Automatic is `ceil(5000 * max(1, W / 496))`, with W at native
+height: 5,000 / 6,190 / 6,875 / 9,033 / 13,771 for original / 16:10 /
+16:9 / 21:9 / 32:9. It retains the higher existing Further/Furthest
+allowance when applicable; Custom (1..1,000,000) overrides both. Zero
+means Automatic. Settings persist; resolution/supersampling do not change
+the allowance. The supported setting bound is not a renderer capacity
+guarantee. State is per board; original view with enhancements off remains
+unchanged. Both capture tools expose the same independent budget control.
+
+Widescreen retains the game's selected-cell prefix and order, then appends
+missing in-range cells by nearest ring. r13's course/grid exclusion mask
+remains; r9's directional mask no longer removes candidate cells for the
+widened view. The geometrizer clips the conservative set for the active
+camera. Default keeps the 5x5 radius; shorter choices retain their radius;
+Further/Furthest retain their existing full-neighbourhood selection.
+Revision A cost observers at 0x17c04/0x17d50 and budget checks at
+0x17b00/0x17d28 measure object-list metadata before clipping, not visible
+polygons. Rejections are strict unsigned consumed > allowance checks
+between lists; overshoot within a list is possible. No register or RAM
+writes in observers. Regenerate from the updated hooks before building.
+
+Validation: Revision A, Windows / Direct3D 12 and software, three verified
+courses, all four race cameras, original through 32:9. The 48-case matrix
+replayed 432,000 frames and captured 1,440 images; 660 sampled comparisons
+against a 50,000-budget control were identical (including four matching
+Beginner references reused from an earlier run). Some 16:10/16:9 lists
+were rejected; all 1,438 consecutive frame pairs around those events,
+including two-frame margins, were identical to 50,000. No budget rejections
+at 21:9/32:9. Maximum wide-view measured cost was 7,517. This supports the
+agreed defaults for these replays, not every possible route or frame.
+
+The reproduced building is restored at both Automatic and explicit 5,000;
+all 41 frames match between them. All 90 native-view captures over three
+9,000-frame replays are byte-identical to the preserved pre-change
+executable. A 2x 32:9 capture retains budget 13,771 and cost 4,974.
+Release builds, two new CTest tests, five capture-tool tests and invalid
+CLI argument checks pass. Tests cover selection bounds/masks/order,
+per-board state, budget transitions and config persistence. Raw throughput
+measurements are recorded separately from capture I/O; single sequential
+runs are not evidence that 32:9 is faster than original.
+
+Failed approach retained: the old generic Advanced/Expert input scripts
+entered Beginner with this Revision A snapshot. Selection uses an absolute
+wheel position: hold through confirmation; Expert also needs settling
+before acceleration. New `widescreen_advanced.txt` and
+`widescreen_expert.txt` plus course-ID assertions resolve this. Do not use
+the abandoned `traces/widescreen-implementation/matrix` as three-course
+evidence; the verified run is `verified-matrix`. Generic inputs remain
+unchanged for their existing users.
+
+Results, exact commands, hashes and screenshots are under ignored
+`traces/widescreen-implementation/`; procedure and coverage are in
+`docs/widescreen-validation.md`. Deluxe '93 smoke is explicitly deferred
+until the user has its ROM; the new cost observers are mapped only for
+Revision A. No claim of new MAME parity. Next work: the later Deluxe '93 check,
+then sky/background presentation, HUD and any separately justified road
+window changes; other GPU backends and live launcher switching also need
+manual coverage.
+
+### Earlier widescreen investigation
+
+**32:9 scenery experiment: omitted cells, not budget, explain the reproduced building.**
+`scripts/scenery_experiment.py` replays six independent conditions with
+frozen inputs/settings and captures all 41 frames from 3580 to 3620.
+Original selection at budgets 5,000, 10,000 and 50,000 is byte-identical
+throughout. Further selection at 5,000 is byte-identical to Further at
+10,000 throughout and restores the missing section. At frame 3600 the
+selected cell count changes from 10 to 25 and 20,483 RGB pixels change.
+Budget 1 changes 464,076 pixels at that frame, verifying the override
+works. A separate ordering control retains original membership but changes
+its order in all 41 frames: the building stays absent, frame 3600 is
+identical to original and other frames differ by at most two pixels.
+Do not re-propose raising budget alone as the fix for this particular defect.
+
+At that stage, headless diagnostic flags were `--draw-budget`, `--draw-order-only`,
+`--scenery-log`; zero/false defaults preserve ordinary behaviour. The log
+records RAM budget and selected cells, not polygon consumption. Builds
+pass; default captures match the previous 32:9 baseline in all 41 frames,
+and native frame 3600 remains byte-identical. Local results/commands/hashes:
+`traces/widescreen-32x9/selection-budget/`; procedure and scope limits in
+`docs/widescreen-validation.md`. There was no launcher change or production
+scenery fix at that stage; the implementation above follows this experiment.
+Other scenes may still need more budget; this experiment
+does not establish their requirements.
+
+**32:9 validation tooling and first reproduced scenery defect.**
+`scripts/widescreen_compare.py` wraps m2run/m2gpushot with frozen cabinet
+settings and input scripts, executable/ROM/input hashes, checked frame
+counts and dimensions, PNGs, pixel comparisons and an HTML viewer. Both
+tools gained `--dump-from FRAME` for consecutive-frame investigations.
+At that stage, launcher and game rendering were unchanged. Procedure and findings:
+`docs/widescreen-validation.md`; local game-derived output is ignored at
+`traces/widescreen-32x9/`.
+
+Revision A, Windows / Direct3D 12: original, 16:9, 21:9 and 32:9 on both
+renderers; 9,000 attract frames and the 20,000-frame race_to_end input.
+768 sparse captures, plus 164 captures of frames 3580..3620 at original
+and 32:9. The replay reaches racing, timeout and results, then returns to
+selection with remaining credits. Frame 3600 at 32:9 has a missing
+building section left of the TRACK HAWKS sign on both renderers. Further
+and Furthest restore it and produce identical dumps at that frame;
+Further changes 20,483 pixels at x=0..285, y=61..201, zero in the central
+native view. This initially implicated scenery selection/budget because
+Further changes both. The follow-up experiment above separates the two
+and identifies omitted cells as the cause of this reproduced defect.
+
+The plain-sky/background-art boundary remains conspicuous (attract 7200).
+Pixel counts alone are not defect verdicts: odd margins flip the existing
+absolute-coordinate checker transparency phase; clipping/interpolation
+also changes pixels. GPU/software differences exist at original width
+too (attract 8100). Five synthetic capture-tool checks pass; actual dumps
+validate dimensions, counts and resume, and the viewer controls were
+checked in the browser. Frame 3600 is byte-identical between sparse and
+consecutive runs in all four shared renderer/ratio combinations.
+No claim of complete 32:9 support or gameplay
+performance benchmarking; HUD/background options, other sets/backends,
+all playable courses and live ratio switching remain outside this pass.
+
 **Vita build: the ROM set.** The 1994 set's M2_ROMSET broke the Vita compile
 check (its CMake builds the runtime itself, without the define);
 platform/vita/CMakeLists.txt defines M2_ROMSET="daytona93", and

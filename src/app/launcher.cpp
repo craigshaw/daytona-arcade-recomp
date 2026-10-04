@@ -1,4 +1,5 @@
 #include "app/launcher.h"
+#include "runtime/game_loop.h"
 
 #include "imgui.h"
 
@@ -266,13 +267,13 @@ Launcher::Result Launcher::draw(bool game_running, const Devices &devices) {
             ImGui::Spacing();
             ImGui::Separator();
             ImGui::TextUnformatted("Enhancements");
-            static const char *aspects[] = {"Original (4:3)", "16:10", "16:9", "21:9"};
-            static const char *aspect_ids[] = {"", "16:10", "16:9", "21:9"};
+            static const char *aspects[] = {"Original (4:3)", "16:10", "16:9", "21:9", "32:9"};
+            static const char *aspect_ids[] = {"", "16:10", "16:9", "21:9", "32:9"};
             int aspect = 0;
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 5; i++)
                 if (cfg_.aspect == aspect_ids[i]) aspect = i;
             ImGui::SetNextItemWidth(200);
-            if (ImGui::Combo("Widescreen", &aspect, aspects, 4)) {
+            if (ImGui::Combo("Widescreen", &aspect, aspects, 5)) {
                 cfg_.aspect = aspect_ids[aspect];
                 cfg_.save();
             }
@@ -290,8 +291,30 @@ Launcher::Result Launcher::draw(bool game_running, const Devices &devices) {
                 cfg_.draw_distance = dd;
                 cfg_.save();
             }
-            ImGui::TextDisabled("Scenery around the course. Default is the game's own; shorter is faster,\n"
-                                "further shows more trees and buildings ahead (not more road).");
+            ImGui::TextDisabled("Scenery around the course. Widescreen also includes scenery beside the view.\n"
+                                "Shorter restricts the range; further adds trees and buildings, not road.");
+            const int scenery_width = 496 + 2 * rt::GameLoop::wide_margin(cfg_.aspect_ratio());
+            const uint32_t automatic_budget = rt::automatic_scenery_budget(scenery_width, cfg_.draw_distance);
+            int budget_mode = cfg_.draw_budget ? 1 : 0;
+            static const char *budget_modes[] = {"Automatic", "Custom"};
+            ImGui::SetNextItemWidth(200);
+            if (ImGui::Combo("Polygon budget", &budget_mode, budget_modes, 2)) {
+                cfg_.draw_budget = budget_mode ? automatic_budget : 0;
+                cfg_.save();
+            }
+            if (cfg_.draw_budget) {
+                int value = int(cfg_.draw_budget);
+                ImGui::SetNextItemWidth(200);
+                if (ImGui::InputInt("Custom allowance", &value, 500, 5000)) {
+                    cfg_.draw_budget = uint32_t(std::clamp(value, 1, int(rt::kMaxSceneryBudget)));
+                    cfg_.save();
+                }
+                ImGui::TextDisabled("Replaces the automatic allowance. Range: 1 to 1,000,000.\n"
+                                    "Low values can omit scenery; high values can cost performance.");
+            } else {
+                ImGui::TextDisabled("Current allowance: %u. Scales with the wider view and respects draw distance.\n"
+                                    "Resolution and super sampling do not change it.", automatic_budget);
+            }
 
             ImGui::Spacing();
             ImGui::Separator();

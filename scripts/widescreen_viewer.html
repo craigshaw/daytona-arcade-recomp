@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Daytona widescreen comparison</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#10151b;color:#e8edf5}
+*{box-sizing:border-box}body{margin:0}header,main{max-width:1450px;margin:auto;padding:20px 28px}
+header{padding-bottom:12px}h1{font-size:26px;margin:0 0 8px}p{color:#aebacb;line-height:1.5;margin:6px 0}
+.controls{position:sticky;top:0;z-index:5;background:#19222ef2;border-block:1px solid #354255;padding:12px 28px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+label{display:flex;gap:8px;align-items:center;font-size:14px}select,button,input[type=number]{background:#253246;border:1px solid #52647c;color:inherit;padding:7px 10px;border-radius:6px}
+button{cursor:pointer}button:hover{background:#354962}input[type=range]{flex:1;min-width:160px;accent-color:#72ddcc}input[type=number]{width:95px}
+.note{border-left:3px solid #72ddcc;padding:9px 14px;margin-bottom:18px;background:#17242a}.finding{margin:5px 8px 5px 0;text-align:left}
+.panel{border:1px solid #354255;border-radius:9px;margin-bottom:20px;overflow:hidden;background:#080c11}
+.caption{display:flex;justify-content:space-between;gap:12px;padding:9px 14px;background:#1b2634;font-size:14px;flex-wrap:wrap}
+.metric{color:#b2c3d7;font-size:12px}.canvas{position:relative;width:100%;aspect-ratio:1366/384;overflow:hidden;background:repeating-linear-gradient(135deg,#0c121a,#0c121a 10px,#111923 10px,#111923 20px)}
+.canvas img{position:absolute;top:0;height:100%;image-rendering:auto}.bounds{position:absolute;top:0;height:100%;border-inline:1px dashed #ffdd73;pointer-events:none}.hidden{display:none}
+details{margin:20px 0;color:#b2c3d7}pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}a{color:#72ddcc}.status{font-size:13px}
+</style>
+<header><h1>Daytona · widescreen comparison</h1><p id="description"></p><p>Matching replay frames at a common scale. Dashed lines mark the original 496-pixel view. Pixel differences are measurements, not automatic defect verdicts.</p></header>
+<div class="controls">
+<label>Sequence <select id="scenario" aria-label="Sequence"></select></label>
+<label>Renderer <select id="renderer" aria-label="Renderer"></select></label>
+<button id="prev" aria-label="Previous frame">←</button><input id="slider" type="range" min="0" value="0" aria-label="Frame selection">
+<button id="next" aria-label="Next frame">→</button><label>Frame <input id="frame" type="number" aria-label="Frame"></label><button id="go">Go</button>
+<label><input id="bounds" type="checkbox" checked>Original view</label>
+</div>
+<main><div class="note"><div id="findingText">Use the arrow keys to step through captured frames.</div><div id="findings"></div></div><div id="panels"></div><details><summary>Capture settings and reproducibility</summary><p><a href="manifest.json">Manifest and exact commands</a> · <a href="comparisons.csv">Pixel measurements (CSV)</a> · <a href="summary.json">Measurement summary</a></p><pre id="metadata"></pre></details></main>
+<script>
+const DATA=__CAPTURE_DATA__;
+const $=id=>document.getElementById(id), runs=DATA.manifest.runs.filter(r=>r.status==='complete');
+const aspects=['original','16:9','21:9','32:9'];
+let frames=[],index=0;
+function options(id,values){for(const value of values){const o=document.createElement('option');o.value=value;o.textContent=value;$(id).appendChild(o)}}
+options('scenario',[...new Set(runs.map(r=>r.scenario))]);options('renderer',[...new Set(runs.map(r=>r.renderer))]);
+$('description').textContent=`${DATA.manifest.config.romset} · ${runs.length} completed runs · HUD centred · plain sky margins · default draw distance`;
+$('metadata').textContent=JSON.stringify({git_head:DATA.manifest.git_head,...DATA.manifest.config},null,2);
+function selectSequence(){const selected=runs.filter(r=>r.scenario===$('scenario').value&&r.renderer===$('renderer').value);frames=selected.length?selected[0].frames.filter(f=>selected.every(r=>r.frames.includes(f))):[];index=Math.min(index,Math.max(0,frames.length-1));$('slider').max=Math.max(0,frames.length-1);render()}
+function render(){const frame=frames[index];$('slider').value=index;$('frame').value=frame??'';$('panels').replaceChildren();if(frame===undefined)return;
+for(const aspect of aspects){const run=runs.find(r=>r.scenario===$('scenario').value&&r.renderer===$('renderer').value&&r.aspect===aspect);if(!run)continue;
+const panel=document.createElement('section');panel.className='panel';const cap=document.createElement('div');cap.className='caption';const title=document.createElement('strong');title.textContent=`${aspect==='original'?'Original':aspect} · ${run.width} × ${run.height}`;cap.appendChild(title);
+const metric=DATA.metrics.find(m=>m.scenario===run.scenario&&m.frame===frame&&m.renderer===run.renderer&&m.aspect===aspect&&m.kind==='centre_vs_original');const text=document.createElement('span');text.className='metric';text.textContent=metric?`Centre vs original: ${metric.changed_percent.toFixed(3)}% pixels differ`:'Original baseline';cap.appendChild(text);panel.appendChild(cap);
+const canvas=document.createElement('div');canvas.className='canvas';const img=document.createElement('img');img.src=`${run.folder}/run_${String(frame).padStart(5,'0')}.png`;img.alt=`${run.scenario}, ${run.renderer}, ${aspect}, frame ${frame}`;img.style.width=`${run.width/1366*100}%`;img.style.left=`${(1366-run.width)/2/1366*100}%`;img.onerror=()=>{text.textContent='Capture image unavailable';};canvas.appendChild(img);
+const bounds=document.createElement('div');bounds.className='bounds'+($('bounds').checked?'':' hidden');bounds.style.width=`${496/1366*100}%`;bounds.style.left=`${435/1366*100}%`;canvas.appendChild(bounds);panel.appendChild(canvas);$('panels').appendChild(panel)}
+const finding=DATA.findings.find(f=>f.scenario===$('scenario').value&&frame>=f.frame&&frame<=(f.end_frame??f.frame));$('findingText').textContent=finding?finding.text:'Use the arrow keys to step through captured frames. GPU rounding and clipping can change pixels; inspect the scene before calling a difference a defect.';
+}
+for(const f of DATA.findings){const b=document.createElement('button');b.className='finding';b.textContent=f.title;b.onclick=()=>{$('scenario').value=f.scenario;selectSequence();index=frames.reduce((best,n,i)=>Math.abs(n-f.frame)<Math.abs(frames[best]-f.frame)?i:best,0);render()};$('findings').appendChild(b)}
+$('scenario').onchange=selectSequence;$('renderer').onchange=selectSequence;$('slider').oninput=()=>{index=+$('slider').value;render()};$('bounds').onchange=render;
+$('prev').onclick=()=>{index=Math.max(0,index-1);render()};$('next').onclick=()=>{index=Math.min(frames.length-1,index+1);render()};
+function chooseFrame(){const target=+$('frame').value;index=frames.reduce((best,n,i)=>Math.abs(n-target)<Math.abs(frames[best]-target)?i:best,0);render()}
+$('frame').onchange=chooseFrame;$('go').onclick=chooseFrame;$('frame').onkeydown=e=>{if(e.key==='Enter')chooseFrame()};
+document.addEventListener('keydown',e=>{if(['INPUT','SELECT'].includes(e.target.tagName))return;if(e.key==='ArrowLeft'){$('prev').click();e.preventDefault()}if(e.key==='ArrowRight'){$('next').click();e.preventDefault()}});
+selectSequence();
+</script>
+</html>

@@ -6,6 +6,8 @@
 #include "app/controls.h"
 
 #include <string>
+#include <cstdint>
+#include <iosfwd>
 
 namespace app {
 
@@ -19,13 +21,14 @@ struct Config {
     bool mute = false;
     bool native_audio = false; // applies on reset; reference remains the default
     // Enhancements (off by default).
-    std::string aspect;        // widescreen: "" (original 4:3), "16:10", "16:9", "21:9"
+    std::string aspect;        // widescreen: "" (original), "16:10", "16:9", "21:9", "32:9"
     bool hud_edges = false;    // with widescreen: lap times, position and maps at the screen edges
     bool stretch_backdrop = false; // with widescreen, in-game: the tile backdrop stretched across the width, else plain sky
     int draw_distance = 0;     // scenery: 0 = the game's own, -2..+2 (rt::Enhance)
+    uint32_t draw_budget = 0;   // 0 Automatic; positive Custom allowance (runtime/scenery.h)
     int draw_mode = 0;         // 0 double buffered (every frame), 1 single buffered (every 2nd), 2 every third frame
     int supersampling = 1;     // hardware renderer: drawn at 1 (off) to 4 times the original resolution
-    static constexpr double kMaxAspect = 21.0 / 9.0;
+    static constexpr double kMaxAspect = 32.0 / 9.0;
     double aspect_ratio() const; // width / height; 0 = original
     Controls controls;
     // Link play (the communication board; Revision A): this cabinet listens
@@ -46,6 +49,8 @@ struct Config {
     static std::string pref_dir(); // where this set's (and profile's) data lives, with a trailing separator
     void load();
     void save() const;
+    void read(std::istream &input);
+    void write(std::ostream &output) const;
 };
 
 } // namespace app

@@ -187,11 +187,44 @@ With every enhancement off the build is the game as MAME runs it; parity checks 
 | Option | Approach | Risk |
 | --- | --- | --- |
 | Internal resolution | Render 3D at N× or window size | Low |
-| Widescreen | **Done** (launcher: 16:10, 16:9, 21:9). Same focal length, viewport widened: the geometrizer's side clip planes and the rasterizer's clip move out by a margin for full-width viewports, the 3D layer is drawn margin-shifted into a wider buffer, tilemaps (HUD, text) stay 496 wide in the centre, and the side margins continue the back tilemaps in 3D scenes (drawn margin to margin with draw()'s own scroll, layer-split and mask rules) or each row's edge colours on 2D screens. Option "HUD at the screen edges": the race HUD's side groups move out by the margin, decided per item (front-layer pixels grouped into blobs; a blob moves only if wholly inside a group, so banners crossing a group stay whole), plus the condition panel's own overlay quads (the polygons at its box's sort z inside its outline), only while that box is on screen | Objects the game itself culls to its 4:3 view can pop in at the edges; measured at 21:9 over a race: none obvious in sampled frames |
-| Draw distance | **Scenery done** (launcher slider: Shortest, Shorter, Default, Further, Furthest; `m2run --draw-distance`). Measured: the geometrizer's master z clip is unused (0xff). The game draws scenery by course cell: a 16x16 grid, the 5x5 cells around the car's filtered by two visibility masks into a list (0x16f74..0x17070; count 0x5016c0, cells from 0x5016c1, room for 63), then every object of each listed cell until a per-frame polygon budget (0x5010f4, 5000, set at boot) runs out. A recompiler hook (`m2recomp --hooks`, `seeds/daytona93_hooks.txt`) at 0x17078 rewrites the list: shorter keeps the car's cell or one ring; further lists the whole 5x5 or 7x7 and raises the budget (10000, 15000), which our renderer has no use for. The road is a separate 14-section window (0x13f5c: 5 behind, 8 ahead) that game logic also uses; not changed | Further adds scenery but not road; the road window is shared with game logic |
+| Widescreen | **Implemented** (launcher: 16:10, 16:9, 21:9, 32:9). Same focal length, viewport widened: the geometrizer's side clip planes and the rasterizer's clip move out by a margin for full-width viewports, the 3D layer is drawn margin-shifted into a wider buffer, tilemaps (HUD, text) stay 496 wide in the centre, and the side margins use plain sky in 3D scenes, optionally stretching the original backdrop across the width, or each row's edge colours on 2D screens. Option "HUD at the screen edges": the race HUD's side groups move out by the margin, decided per item (front-layer pixels grouped into blobs; a blob moves only if wholly inside a group, so banners crossing a group stay whole), plus the condition panel's own overlay quads (the polygons at its box's sort z inside its outline), only while that box is on screen. Wider views also extend scenery selection and scale its budget, as detailed below | Revision A course/camera replays validated; sky boundaries, HUD presentation and road coverage remain separate work. Deluxe '93 smoke remains unverified |
+| Draw distance | **Scenery implemented** (launcher slider: Shortest, Shorter, Default, Further, Furthest; `m2run --draw-distance`). Measured: the geometrizer's master z clip is unused (0xff). The game draws scenery by course cell: a 16x16 grid, the 5x5 cells around the car's filtered by two visibility masks into a list (Deluxe '93: 0x16f74..0x17070; count 0x5016c0, cells from 0x5016c1, room for 63), then object lists until a per-frame polygon budget (0x5010f4, 5000, set at boot) is exceeded. A recompiler hook (`m2recomp --hooks`, `seeds/daytona93_hooks.txt`) at 0x17078 rewrites the list: shorter keeps the car's cell or one ring; further lists the whole 5x5 or 7x7. Automatic uses the higher of the aspect allowance and the existing distance allowance (10000, 15000); Custom overrides both. The road is a separate 14-section window (0x13f5c: 5 behind, 8 ahead) that game logic also uses; not changed | Further adds scenery but not road; the road window is shared with game logic |
 | Texture filtering | Bilinear/anisotropic on atlases | Low; atlas padding needed |
 | High frame rate | Interpolate display lists between frames | High; logic stays at native rate |
 | MSAA | Standard multisample target | Low |
+
+**32:9 scenery and budget (4 Oct 2026):** the launcher and headless tools
+offer 32:9 at a native-height viewport of 1366x384. The first comparison
+on Revision A / Direct3D 12 reproduces missing trackside scenery at race
+frame 3600 on both renderers. Separating the Further hook's two changes
+across 41 consecutive software frames shows that its full 5x5 cell list
+restores the scenery at the original 5,000 budget, identically to 10,000.
+Raising only the budget to 10,000 or 50,000 changes no pixels. Reordering
+only the original cells leaves the building absent. Added cell membership
+therefore resolves this defect. The implemented milestone extends scenery
+selection for widescreen, with a proportional automatic budget and
+independent custom override, preserving original-view behaviour.
+At Default distance the policy is `ceil(5000 * max(1, W / 496))`, using width at native
+height before output scaling. Automatic retains a higher existing
+draw-distance allowance when applicable; Custom overrides both. This
+policy was approved on 4 Oct 2026 and is implemented in `runtime/scenery.h`,
+with per-board aspect/custom settings and launcher/tool controls. Widescreen
+retains the game's existing selected-cell prefix and course/grid exclusion
+mask, appending the remaining in-range cells omitted by the directional
+mask; the geometrizer clips this conservative candidate set for the active
+camera. It does not change the road window or the game's separate cell
+bitmaps. Native Default remains a no-op. Revision A diagnostics observe
+cost updates at 0x17c04/0x17d50 and unsigned budget checks at
+0x17b00/0x17d28, without changing game state. Costs are object metadata,
+not visible polygon counts; checks happen between object lists and can
+allow overshoot within a list. Revision A coverage includes three courses,
+four cameras, five ratios and both renderers: 660 sampled Automatic/50,000
+comparisons and 1,438 consecutive comparisons around budget rejections
+match exactly. Ninety native-view captures match the previous executable
+byte-for-byte. This supports the defaults in those replays, not every
+possible frame. Deluxe '93 awaits its supplied ROM. See
+[widescreen validation](widescreen-validation.md) for the reproducible
+capture procedure, measurements and remaining limits.
 
 ## Audio, inputs, force feedback, link play
 
