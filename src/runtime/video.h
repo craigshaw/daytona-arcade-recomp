@@ -58,7 +58,8 @@ public:
     const Panorama &panorama() const { return panorama_; }
     bool panorama_active() const {
         return (panorama_.original ? panorama_.source_valid : panorama_.enabled) &&
-               panorama_.phase_valid && margin_ && panorama_.course == 0 && scene() &&
+               panorama_.phase_valid && margin_ && scene() &&
+               (panorama_.original ? panorama_.course == panorama_.cached_course : panorama_.course == 0) &&
                !(panorama_.vertical & 0x8000) && (panorama_.vertical & 0x6000) <= 0x2000 &&
                !(panorama_.horizontal & 0x8000);
     }

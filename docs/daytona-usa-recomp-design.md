@@ -244,12 +244,15 @@ window, not the full source artwork. First try caching the complete original
 assets before commissioning replacements; palette and split-layer handling
 still need integration. See [backdrop inventory](backdrop-inventory.md).
 
-**Original panorama milestone (4 Oct 2026):** the opt-in Revision A Beginner
-path now decodes the original sky from ROM into cached 16-bit palette
+**Original panorama milestone (4 Oct 2026):** the opt-in path for all three
+Revision A courses decodes the original sky from ROM into cached 16-bit palette
 indices. It replaces only layer-2 source pixels in the existing tile pass,
 retaining live palette fades, split/filler layers and overlays. Matching
 the live streamed map and character data prevents early activation during
-loading. Original view and unsupported states retain the existing renderer.
+loading. The selected course's source height controls sampling and readiness;
+one CPU cache is replaced on course changes, and the GPU buffer grows only
+as needed (largest sky 1.69 MiB). Course and game-instance identity control
+uploads. Original view and unsupported states retain the existing renderer.
 The launcher remains unchanged pending wider course/revision validation.
 See [original panorama](original-panorama.md) for reproduction and limits.
 

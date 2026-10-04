@@ -11,8 +11,8 @@
 #include <stdexcept>
 
 int main(int argc, char **argv) {
-    if (argc != 4) {
-        std::fprintf(stderr, "usage: m2panoramacheck IMAGES_DIR NVRAM_DIR INPUTS\n");
+    if (argc < 4) {
+        std::fprintf(stderr, "usage: m2panoramacheck IMAGES_DIR NVRAM_DIR INPUTS [INPUTS ...]\n");
         return 2;
     }
     auto require = [](bool ok, const char *message) { if (!ok) throw std::runtime_error(message); };
@@ -39,9 +39,9 @@ int main(int argc, char **argv) {
         bi.size = W * H * 4;
         download = SDL_CreateGPUTransferBuffer(device, &bi);
         require(target && download, SDL_GetError());
-        tools::Script script;
-        script.load(argv[3]);
-        for (unsigned instance = 0; instance < 2; ++instance) {
+        for (unsigned instance = 0; instance < unsigned(argc - 3) * 2; ++instance) {
+            tools::Script script;
+            script.load(argv[3 + instance / 2]);
             rt::GameLoop game(argv[1]);
             tools::load_nvram(game, argv[2]);
             auto &video = game.board().video();
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
             video.set_external_3d(true, true);
             game.set_aspect(32.0 / 9.0);
             for (unsigned frame = 0; frame < 3600; ++frame) game.run_frame(script.at(game.board().frame()));
-            require(video.panorama_active(), "fixture did not reach the Beginner panorama");
+            require(video.panorama_active(), "fixture did not reach a supported panorama");
             const auto &polys = video.gpu_polys();
             const auto mem = video.gpu_mem();
             const int windows = video.gpu_windows();
@@ -102,7 +102,8 @@ int main(int argc, char **argv) {
                 require(!std::memcmp(mem.palram, original_palette.data(), original_palette.size()), "guest palette was changed");
             }
             require(gpu.panorama_uploads() == instance + 1, "palette changes re-uploaded sky or instance reset reused stale cache");
-            std::printf("instance %u: four palette stages match CPU/GPU and legacy centre; one upload\n", instance + 1);
+            std::printf("instance %u, course %u, height %u: four palette stages match CPU/GPU and legacy centre; one upload\n",
+                        instance + 1, unsigned(video.panorama().cached_course), video.panorama().source_height());
         }
         std::puts("PASS: fade to black/restoration, palette cache reuse and new game instance");
     } catch (const std::exception &error) {

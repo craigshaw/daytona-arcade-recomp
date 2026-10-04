@@ -1,5 +1,5 @@
-// Opt-in one-course panoramas: a procedural sampling proof and the original
-// ROM sky. Host-only caches never feed back into game RAM or polygon selection.
+// Opt-in panoramas: a one-course sampling proof and the original course skies.
+// Host-only caches never feed back into game RAM or polygon selection.
 #pragma once
 #include <algorithm>
 #include <array>
@@ -41,15 +41,28 @@ public:
     // The game derives layer-2 hscroll from phase >> 5, then masks to 511.
     // Retain the full 16-bit phase: one complete cycle spans 2048 texels.
     int scroll_x() const { return int(phase >> 5); }
-    // Revision A Beginner: eight original 32x49 tile maps. Keep palette
+    // Revision A: eight original 32-column tile maps per course. Keep palette
     // indices/category, not RGB, so the normal per-frame pens supply fades.
     // ROM offsets are verified in docs/backdrop-inventory.md; no ROM data
     // is embedded in the executable or loaded from extracted image files.
-    static constexpr int SourceY = 48, SourceHeight = 392;
-    bool load_original(const std::vector<uint8_t> &rom) {
-        if (!indices.empty()) return true;
-        if (original_load_attempted) return false;
-        original_load_attempted = true; // immutable ROM: failures also stay cached
+    static constexpr int SourceY = 48;
+    struct Source { uint32_t descriptor, table; unsigned height; };
+    static const Source *source_for(unsigned course) {
+        // Game IDs are Beginner / Expert / Advanced, not menu order.
+        static constexpr Source sources[] = {{0x2600020, 0x2074240, 392},
+            {0x2600040, 0x2074268, 432}, {0x2600060, 0x2081180, 344}};
+        return course < 3 ? &sources[course] : nullptr;
+    }
+    unsigned source_height() const {
+        const auto *source = source_for(cached_course);
+        return source ? source->height : 0;
+    }
+    bool load_original(const std::vector<uint8_t> &rom, unsigned requested_course = 0) {
+        const auto *layout = source_for(requested_course);
+        if (!layout) return false;
+        if (cached_course == requested_course) return true;
+        if (failed_courses & (1u << requested_course)) return false;
+        failed_courses |= 1u << requested_course; // immutable ROM: cache failures too
         auto range = [&](uint32_t address, uint32_t size) {
             return address >= 0x2000000 && uint64_t(address - 0x2000000) + size <= rom.size();
         };
@@ -57,7 +70,7 @@ public:
             const auto *p = rom.data() + (address - 0x2000000);
             return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24;
         };
-        constexpr uint32_t table = 0x2074240;
+        const uint32_t table = layout->table, rows = layout->height / 8;
         if (!range(table, 40)) return false;
         std::vector<uint8_t> chars(0x80000), present(0x4000);
         uint32_t upload = word(table);
@@ -74,13 +87,14 @@ public:
             std::fill_n(present.data() + offset / 32, count, uint8_t(1));
         }
         if (!ended) return false;
-        std::vector<uint16_t> decoded(Width * SourceHeight), maps(256 * 49);
+        std::vector<uint16_t> decoded(Width * layout->height), maps(256 * rows);
+        std::vector<Character> decoded_characters;
         std::array<bool, 0x4000> used{};
         for (unsigned section = 0; section < 8; ++section) {
             const uint32_t source = word(table + 8 + section * 4);
-            if (!range(source, 12 + 32 * 49 * 2) || word(source + 4) != 49 || word(source + 8) != 32)
+            if (!range(source, 12 + 32 * rows * 2) || word(source + 4) != rows || word(source + 8) != 32)
                 return false;
-            for (unsigned tile = 0; tile < 32 * 49; ++tile) {
+            for (unsigned tile = 0; tile < 32 * rows; ++tile) {
                 const auto *p = rom.data() + (source + 12 + tile * 2 - 0x2000000);
                 const uint16_t value = uint16_t(p[0] | p[1] << 8);
                 const unsigned code = value & 0x3fff, colour = (value >> 7) & 255;
@@ -99,10 +113,13 @@ public:
             Character character{};
             character.offset = code * 32;
             std::copy_n(chars.data() + character.offset, 32, character.bytes.data());
-            characters.push_back(character);
+            decoded_characters.push_back(character);
         }
+        characters.swap(decoded_characters);
         source_tiles.swap(maps);
         indices.swap(decoded);
+        cached_course = uint8_t(requested_course);
+        failed_courses &= ~(1u << requested_course);
         return true;
     }
     // Course selection precedes the actual sky upload. Match the columns
@@ -112,7 +129,7 @@ public:
         if (indices.empty()) return false;
         const unsigned start = unsigned(-int((sweep ? register_phase : phase) >> 5)) & (Width - 1);
         const unsigned columns = ((start & 7) + 496 + 7) / 8;
-        for (unsigned row = 0; row < 49; ++row) for (unsigned col = 0; col < columns; ++col) {
+        for (unsigned row = 0; row < source_height() / 8; ++row) for (unsigned col = 0; col < columns; ++col) {
             const unsigned source = (start / 8 + col) & 255;
             const unsigned address = (0x2000 + (row + 6) * 64 + (source & 63)) * 2;
             const uint16_t live = uint16_t(tiles[address] | tiles[address + 1] << 8);
@@ -134,7 +151,8 @@ public:
     bool enabled = false;
     bool original = false; // opt-in original-art milestone, independent of test art
     bool source_valid = false;
-    bool original_load_attempted = false;
+    unsigned failed_courses = 0;
+    uint8_t cached_course = 255;
     bool sweep = false; // capture-only sampling stress, never changes the game
     bool only = false; // capture-only isolation of the existing background pass
     uint16_t phase = 0;

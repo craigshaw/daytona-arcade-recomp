@@ -1,26 +1,30 @@
 # Original panorama milestone
 
-Revision A Beginner, opt-in capture tools. The complete original 2048x392
+All three Revision A courses, opt-in capture tools. The complete original
 sky is decoded from the user's imported ROM; no extracted PNG or replacement
 artwork is required. The normal launcher and default rendering are unchanged.
 This follows the design document's Renderer and Enhancements sections.
 
 ## Rendering
 
-- Cache 16-bit palette indices and tile category: 1,605,632 bytes (1.53 MiB)
-  each on CPU and GPU, plus small CPU source-validation records.
+- Cache one course's 16-bit palette indices and tile category, plus small
+  CPU source-validation records. Beginner is 2048x392 (1.53 MiB), Advanced
+  2048x344 (1.34 MiB), and Expert 2048x432 (1.69 MiB), each on CPU and GPU.
+  Course IDs are 0 / 2 / 1 respectively. The CPU cache replaces its previous
+  course; the GPU allocation grows only as needed and reuses that capacity.
   Software composition also keeps a reusable 496x384 overlay buffer
   (0.73 MiB); the desktop GPU path does not allocate it.
-- Upload the indices once per game instance, alongside the existing tile
-  pixmaps. The shared tile shader uses the current palette, so fades need
+- Upload the indices on the first supported frame and when the rendered
+  course or game instance changes, alongside the existing tile pixmaps.
+  The shared tile shader uses the current palette, so fades need
   no panorama re-upload and no additional rendering pass.
 - Extend only the layer-2 source rows. Preserve live filler rows, layer-3
   vertical splits, window masks, overlay priorities, HUD and foreground.
   Source pixels retain their native size at both 16:9 and 32:9.
 - Use the existing latched full camera phase. Before activating, check the
-  Beginner selector, supported scroll state, visible streamed map columns
+  course selector/descriptor, supported scroll state, visible streamed map columns
   and original character data. Loading or stale source states fall back.
-- Original view, other courses and other ROM sets retain the existing
+- Original view, the unverified fourth source and other ROM sets retain the existing
   renderer. In a supported scene this mode takes precedence over stretching;
   elsewhere the selected legacy background mode remains in force.
 
@@ -48,6 +52,9 @@ Invoke-Item traces/original-sky-try/preview.png
 
 The PNG converter uses only the Python standard library. To capture at 16:9,
 change the aspect to `16:9` and the converter width to `682`.
+For Advanced or Expert, replace the input replay with
+`scripts/inputs/widescreen_advanced.txt` or `scripts/inputs/widescreen_expert.txt`.
+The same `--panorama-original` option selects the course artwork automatically.
 
 For the automated checks:
 
@@ -62,13 +69,17 @@ cabinet settings and inputs, records commands/executable/ROM hashes, compares
 pixels, then removes raw captures and per-frame logs after each job. Compact
 results and selected PNGs remain. Optional `--baseline-tools DIRECTORY`
 compares disabled rendering against saved pre-change executables.
+Use `--course advanced` or `--course expert` for the other courses, each with
+its own output directory. The default is Beginner. Each replay exercises all
+four race cameras; consecutive loading and wrap checks follow that course's
+observed activation and full-phase wrap rather than Beginner's frame numbers.
 
 `--panorama-only` isolates the complete back-layer composite, including when
 the extension is disabled, for exact software/GPU comparisons. It is a
 capture diagnostic. `--sky-log FILE` records readiness, scroll and palette
 state. Neither option changes guest RAM or gameplay.
 
-## Recorded checks — 4 October 2026
+## Initial Beginner checks — 4 October 2026
 
 Windows / Direct3D 12, Revision A:
 
@@ -97,7 +108,7 @@ Run the palette/cache fixture explicitly (it is excluded from ordinary builds):
 
 ```powershell
 cmake --build build-daytona --config Release --target m2panoramacheck --parallel 4
-build-daytona/Release/m2panoramacheck.exe build-daytona/rom_cache/daytona traces/widescreen-32x9/nvram traces/original-panorama/validated/inputs.txt
+build-daytona/Release/m2panoramacheck.exe build-daytona/rom_cache/daytona traces/widescreen-32x9/nvram scripts/inputs/race_to_end.txt scripts/inputs/widescreen_advanced.txt scripts/inputs/widescreen_expert.txt scripts/inputs/race_to_end.txt
 ```
 
 For performance, two reverse-order runs per mode measured 3,000 frames
@@ -110,6 +121,32 @@ are host-side costs, not GPU timestamp measurements or a speedup claim.
 Software-renderer performance was not separately benchmarked. Both timing
 sets and commands remain in the local results.
 
-Remaining scope: Advanced/Expert original-art integration, Deluxe '93,
-live launcher switching and runtime testing on other GPU backends. Shared
+## Advanced and Expert extension — 4 October 2026
+
+The same opt-in path now supports all three race courses. Advanced and Expert
+each pass 19 replay jobs / 889 captures / 14 comparison groups, covering both
+16:9 and 32:9, exact CPU/GPU backgrounds, native centre preservation, four
+cameras, loading, natural wraparound, HUD placement and 2x supersampling.
+There are 621 Advanced and 624 Expert pixel comparisons, with no mismatches.
+Both remain active throughout all 3,001 frames from 3000 through 6000.
+The Beginner regression repeats 19 jobs / 889 captures / 14 groups with 621
+comparisons passing; 795 captures at matching frames also agree byte-for-byte
+with the previous milestone. Across the three courses this is 57 jobs,
+2,667 captures and 1,866 comparisons, with no mismatches.
+
+Each 18,000-frame GPU replay goes from the initial Beginner attract scene to
+the selected course and back to Beginner, with exactly three uploads and
+unchanged central pixels. The 6,000-frame software controls and native-view
+controls pass too. The palette fixture reuses one GPU renderer across eight
+game instances (Beginner, Advanced, Expert, Beginner, twice each): all 32
+palette stages match CPU/GPU and the original centre, with one upload per
+instance. This also exercises buffer growth and reuse for smaller skies.
+
+Local evidence and a before/after gallery: `traces/course-panoramas/`.
+Raw frames and per-frame logs are deleted after comparison; only compact
+records and selected PNGs remain. Validation is against the existing renderer,
+not a new MAME comparison; runtime GPU checks still cover Direct3D 12 only.
+
+Remaining scope: Deluxe '93, live launcher switching and runtime testing on
+other GPU backends. The fourth ROM source remains unverified. Shared
 SPIR-V, DXIL and MSL shaders are regenerated from the same HLSL source.

@@ -111,7 +111,7 @@ opens first:
   See [widescreen validation](docs/widescreen-validation.md) for measurements
   and the remaining background/road limitations. Start.
   An [original panorama experiment](docs/original-panorama.md) is available
-  through the capture tools for Revision A Beginner; it is not yet a launcher
+  through the capture tools for all three Revision A courses; it is not yet a launcher
   setting.
 - **Controls**: bind every arcade control to a key, a gamepad button or
   axis, and a wheel or joystick input (experimental; click, then press). Triggers, sticks,

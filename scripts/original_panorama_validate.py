@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the Revision A Beginner original sky, retaining hashes and a small gallery.
+"""Validate a Revision A course's original sky, retaining hashes and a small gallery.
 
 Needs NumPy. Raw captures/frame logs are discarded after measuring each job.
 Use a fresh ignored output directory when executables or inputs change.
@@ -30,13 +30,16 @@ def main():
     parser.add_argument('--build-dir', type=Path, default=ROOT / 'build-daytona')
     parser.add_argument('--baseline-tools', type=Path)
     parser.add_argument('--bench', action='store_true')
+    parser.add_argument('--course', choices=['beginner', 'advanced', 'expert'], default='beginner')
     args = parser.parse_args()
     out, build = args.output.resolve(), args.build_dir.resolve()
     # Deletion is limited to generated files inside this dedicated ignored run.
     if not out.is_relative_to(ROOT / 'traces') or out == ROOT / 'traces' or out.is_symlink():
         raise SystemExit('Output must be a dedicated directory beneath traces/')
     tools = {r: capture.executable(build, name) for r, name in [('software', 'm2run'), ('hardware', 'm2gpushot')]}
-    inputs = (ROOT / 'scripts/inputs/race_to_end.txt').read_text() + '\n3200-3209 vr1=1\n3800-3809 vr2=1\n4400-4409 vr3=1\n5000-5009 vr4=1\n'
+    input_file = 'race_to_end.txt' if args.course == 'beginner' else f'widescreen_{args.course}.txt'
+    course_id = {'beginner': 0, 'advanced': 2, 'expert': 1}[args.course]
+    inputs = (ROOT / 'scripts/inputs' / input_file).read_text() + '\n3200-3209 vr1=1\n3800-3809 vr2=1\n4400-4409 vr3=1\n5000-5009 vr4=1\n'
     signature = {'tools': {r: digest(p.read_bytes()) for r, p in tools.items()},
                  'inputs': digest(inputs.encode()), 'runner': digest(Path(__file__).read_bytes()),
                  'nvram': {n: digest((args.nvram / n).read_bytes()) for n in ['ioboard_eeprom.bin', 'backup_ram.bin']},
@@ -59,11 +62,11 @@ def main():
             raise RuntimeError(f'Unsafe generated path: {path}')
         path.unlink()
 
-    def run(name, renderer, aspect='32:9', frames=6000, every=300, first=0, flags=(), baseline=False, course=None):
+    def run(name, renderer, aspect='32:9', frames=6000, every=300, first=0, flags=(), baseline=False):
         folder = out / name
         folder.mkdir(parents=True, exist_ok=True)
         exe = tools[renderer] if not baseline else args.baseline_tools.resolve() / tools[renderer].name
-        script = out / 'inputs.txt' if not course else ROOT / f'scripts/inputs/widescreen_{course}.txt'
+        script = out / 'inputs.txt'
         command = [str(exe), str(build / 'rom_cache/daytona'), str(frames), '--nvram', str(out / 'nvram'),
                    '--inputs', str(script), '--dump', str(folder), '--dump-from', str(first), '--every', str(every),
                    '--sky-log', str(folder / 'sky.jsonl')]
@@ -89,6 +92,11 @@ def main():
         expected = list(range(max(every, ((first + every - 1) // every) * every), frames + 1, every))
         record = {'key': key, 'seconds': time.perf_counter() - start, 'images': {},
                   'active_frames': sum(r['panorama'] for r in rows),
+                  'race_inactive': [r['frame'] for r in rows if 3000 <= r['frame'] <= 6000 and not r['panorama']],
+                  'first_course_active': next((r['frame'] for r in rows if r['panorama'] and r['course'] == course_id), None),
+                  'natural_wraps': [b['frame'] for a, b in zip(rows, rows[1:])
+                                    if a['panorama'] and b['panorama'] and a['course'] == b['course'] == course_id
+                                    and abs(a['panorama_phase'] - b['panorama_phase']) > 64000],
                   'active_sky_colours': sorted({r['sky_colour'] for r in rows if r['panorama'] and 'sky_colour' in r})}
         uploads = re.search(r'panorama uploads (\d+)', completed.stdout)
         if uploads:
@@ -112,6 +120,15 @@ def main():
                 path.with_suffix('.png').write_bytes(capture.png(raw, width * scale, 384 * scale))
             remove_generated(path)
         remove_generated(folder / 'sky.jsonl')
+        if renderer == 'hardware':
+            previous, expected_uploads = None, 0
+            for item in record['images'].values():
+                if item['state']['panorama']:
+                    course = item['state']['panorama_course']
+                    if course != previous:
+                        expected_uploads += 1
+                        previous = course
+            assert record['uploads'] == expected_uploads, f'{name}: stale cache or redundant upload'
         result_file.write_text(json.dumps(record, indent=2))
         print(f'{name}: {len(expected)} frames, {record["active_frames"]} active, {record.get("uploads", "CPU")} uploads', flush=True)
         return record
@@ -133,16 +150,21 @@ def main():
         off = run(f'{slug}/sky-off', 'hardware', aspect, every=60, flags=isolated)
         on = run(f'{slug}/sky-original', 'hardware', aspect, every=60, flags=original + isolated)
         compare(f'{aspect}: background centre unchanged, including fades and overlays', on, off, 'centre')
-        assert on['uploads'] == 1
+        assert not on['race_inactive'], f'{args.course}: inactive race frames {on["race_inactive"][:20]}'
+        assert on['images']['3600']['state']['panorama_course'] == course_id
         skies[aspect] = on
     compare('16:9 is exact centre crop of 32:9 background', skies['16:9'], skies['32:9'], 'hash', 'crop16')
     cpu = run('32x9/sky-software', 'software', every=60, flags=original + isolated)
     compare('Software/GPU complete background', cpu, skies['32:9'])
-    detail_off = run('wrap/off', 'hardware', frames=3705, first=3688, every=1, flags=isolated)
-    detail_on = run('wrap/original', 'hardware', frames=3705, first=3688, every=1, flags=original + isolated)
+    wraps = [f for f in skies['32:9']['natural_wraps'] if f >= 3000]
+    assert wraps, f'{args.course}: replay needs a natural wrap to validate'
+    wrap = wraps[0]
+    detail_off = run('wrap/off', 'hardware', frames=wrap + 10, first=wrap - 7, every=1, flags=isolated)
+    detail_on = run('wrap/original', 'hardware', frames=wrap + 10, first=wrap - 7, every=1, flags=original + isolated)
     compare('Consecutive natural full-phase wrap: centre unchanged', detail_on, detail_off, 'centre')
-    loading_off = run('loading/off', 'hardware', frames=2605, first=2560, every=1, flags=isolated)
-    loading_on = run('loading/original', 'hardware', frames=2605, first=2560, every=1, flags=original + isolated)
+    loading = skies['32:9']['first_course_active']
+    loading_off = run('loading/off', 'hardware', frames=loading + 25, first=max(1, loading - 20), every=1, flags=isolated)
+    loading_on = run('loading/original', 'hardware', frames=loading + 25, first=max(1, loading - 20), every=1, flags=original + isolated)
     compare('Consecutive sky-loading transition: centre unchanged', loading_on, loading_off, 'centre')
     for renderer, frames in [('hardware', 18000), ('software', 6000)]:
         off = run(f'full/{renderer}/off', renderer, frames=frames)
@@ -159,11 +181,6 @@ def main():
     large = run('scale2', 'hardware', frames=3600, every=3600, first=3600, flags=original + isolated + ['--scale', '2'])
     compare('2x supersampling retains source pixels', large, skies['32:9'], 'unscaled', 'hash')
     assert large['images']['3600']['nearest']
-    for course in ['advanced', 'expert']:
-        off = run(f'{course}/off', 'hardware', course=course)
-        on = run(f'{course}/original', 'hardware', course=course, flags=original)
-        compare(f'{course}: unsupported-course fallback', on, off, predicate=lambda r: r['state']['course'] != 0)
-        assert on['images']['3600']['state']['course'] == (2 if course == 'advanced' else 1)
     hud_off = run('hud/off', 'hardware', flags=['--hud-edges'])
     hud_on = run('hud/original', 'hardware', flags=original + ['--hud-edges'])
     compare('HUD at edges: centre/overlays unchanged', hud_on, hud_off, 'centre')

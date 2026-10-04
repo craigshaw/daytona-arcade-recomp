@@ -82,5 +82,38 @@ int main() {
     put(0x1008, 32);
     put(0x104, 0x1080001);
     check(!rt::Panorama{}.load_original(rom), "unaligned character upload rejected");
+    put(0x104, 0x1080000);
+    // Different source heights share one cache. Switching back must decode
+    // again, rather than retaining another course's indices or validation data.
+    rom.resize(0x82000);
+    for (unsigned course : {0u, 2u, 1u, 0u}) {
+        const auto *source = rt::Panorama::source_for(course);
+        const unsigned table = source->table - 0x2000000, rows = source->height / 8;
+        put(table, 0x2000100);
+        for (unsigned section = 0; section < 8; ++section) {
+            const unsigned offset = 0x1000 + section * 0x1000;
+            put(table + 8 + section * 4, 0x2000000 + offset);
+            put(offset + 4, rows);
+            put(offset + 8, 32);
+            for (unsigned tile = 0; tile < 32 * rows; ++tile) {
+                rom[offset + 12 + tile * 2] = uint8_t(section);
+                rom[offset + 13 + tile * 2] = section == 7 ? 0x80 : 0;
+            }
+        }
+        check(original.load_original(rom, course), "course switch must decode");
+        check(original.cached_course == course && original.source_height() == source->height,
+              "course switch must update source geometry");
+        check(original.indices.size() == 2048 * source->height && original.characters.size() == 8,
+              "course switch must replace cache and character records");
+        check(original.original_pixel(0, 48 + int(source->height) - 1) == 0x8008,
+              "course-specific bottom row and full-width wrap");
+        const auto *same = original.indices.data();
+        check(original.load_original({}, course) && same == original.indices.data(), "same course must reuse cache");
+    }
+    check(!original.load_original(rom, 3) && !original.load_original(rom, 255), "unverified course must fall back");
+    check(original.cached_course == 0, "unsupported course must not corrupt the cache");
+    rt::Panorama truncated;
+    check(!truncated.load_original({}, 2) && !truncated.load_original(rom, 2), "failed immutable course is not retried");
+    check(truncated.load_original(rom, 0), "one failed course must not block other courses");
     std::puts("Panorama periodicity, aspect anchoring, horizon and cache checks passed");
 }

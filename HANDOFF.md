@@ -2,6 +2,34 @@
 
 ## Current state
 
+**Advanced and Expert original panoramas implemented (4 Oct 2026).**
+`--panorama-original` now selects all three Revision A race skies automatically.
+Course IDs 0 / 2 / 1 use heights 392 / 344 / 432 at source Y 48. One CPU cache
+is replaced on course changes; the GPU buffer grows only as needed, up to
+1.69 MiB of sky indices, and uploads on rendered course/game-instance changes.
+Sampling and live-source readiness use each course's height. The existing
+shared tile pass, palette, split layers and overlays are retained. The proof
+image remains Beginner-only. Launcher integration and Deluxe '93 are deferred.
+
+57 replay jobs / 2,667 captures / 42 comparison groups / 1,866 comparisons
+pass across Beginner, Advanced and Expert; 795 matching Beginner captures
+also agree byte-for-byte with the previous milestone. Each course stays
+active throughout all 3,001 race frames from 3000 through 6000. Advanced and
+Expert loading and natural-wrap sequences, all four cameras, CPU/GPU skies,
+native view, HUD and 2x sampling pass. Their 18,000-frame GPU runs change
+Beginner -> selected course -> Beginner, with exactly three uploads and
+unchanged centres; 6,000-frame software controls also pass. Eight instances
+sharing one GPU renderer pass all 32 synthetic palette stages, including
+buffer growth and reuse for smaller skies. No new MAME-parity claim.
+
+Release builds, three targeted CTests and five capture utility tests pass.
+Shared SPIR-V/DXIL/MSL regenerated; only Direct3D 12 runtime tested. The local
+shader tools were reused; this harness required setting PATH inside Python
+after a PowerShell PATH prefix was not inherited by the compiler lookup.
+Procedure: `docs/original-panorama.md`. Compact results and before/after
+gallery: ignored `traces/course-panoramas/`; all raw captures/logs removed
+after hashing. Next: Deluxe '93, live launcher switching and other GPU backends.
+
 **Original panorama milestone implemented (4 Oct 2026), capture tools only.**
 Revision A Beginner now uses the original ROM's complete 2048x392 sky via
 `--panorama-original`. Cache palette indices/category (1.53 MiB CPU and GPU,

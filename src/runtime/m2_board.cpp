@@ -168,7 +168,7 @@ void M2Board::vblank_end() {
     m.tex1 = reinterpret_cast<const uint32_t *>(tex1_.data());
     m.tex_generation = tex_generation_;
     if (video_->panorama().enabled || video_->panorama().original) {
-        // Revision A proof: sample alongside the tile registers at vblank,
+        // Revision A panoramas: sample alongside the tile registers at vblank,
         // not after the CPU has begun preparing the following frame.
         auto &p = video_->panorama();
         p.phase = p.sweep ? uint16_t(frame_ * 512) : p.register_phase;
@@ -176,8 +176,9 @@ void M2Board::vblank_end() {
         p.horizontal = read_word(0x100a004);
         p.vertical = read_word(0x100a00c);
         p.course = std::string_view(M2_ROMSET) == "daytona" ? read_byte(0x501460) : 255;
-        p.source_valid = p.original && p.course == 0 && read_dword(0x5fe5e4) == 0x2600020;
-        if (p.source_valid) p.source_valid = p.load_original(img_.main_data);
+        const auto *source = Panorama::source_for(p.course);
+        p.source_valid = p.original && source && read_dword(0x5fe5e4) == source->descriptor;
+        if (p.source_valid) p.source_valid = p.load_original(img_.main_data, p.course);
     }
     video_->screen_update(geo_->polys, geo_->windows(), m);
     ++frame_;

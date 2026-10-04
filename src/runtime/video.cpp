@@ -673,7 +673,7 @@ uint16_t Video::panorama_background_pen(int x, int y) const {
         const unsigned hs = (h & 0x8000) ? tile(0x4000 + 0x200 * layer + y) : h;
         const size_t offset = size_t(sy) * 512 + (unsigned(x - int(hs)) & 511);
         uint16_t pixel = uint16_t(pixmap_[source][offset] | (flags_[source][offset] & 1) << 15);
-        if (source == 2 && sy >= Panorama::SourceY && sy < Panorama::SourceY + Panorama::SourceHeight)
+        if (source == 2 && sy >= Panorama::SourceY && sy < Panorama::SourceY + int(panorama_.source_height()))
             pixel = panorama_.original_pixel(x, sy);
         if (split && (pixel & 0x8000)) continue; // opaque split still checks category
         return pixel & 4095;

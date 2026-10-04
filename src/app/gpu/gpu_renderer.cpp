@@ -184,7 +184,8 @@ void GpuRenderer::shutdown() {
     if (panorama_) SDL_ReleaseGPUTexture(dev_, panorama_), panorama_ = nullptr;
     panorama_uploads_ = 0;
     original_panorama_instance_ = 0;
-    tilepix_extended_ = false;
+    original_panorama_course_ = 255;
+    tilepix_panorama_bytes_ = 0;
     if (front_) SDL_ReleaseGPUTexture(dev_, front_), front_ = nullptr;
     if (depth_) SDL_ReleaseGPUTexture(dev_, depth_), depth_ = nullptr;
     if (vbuf_) SDL_ReleaseGPUBuffer(dev_, vbuf_), vbuf_ = nullptr;
@@ -355,9 +356,10 @@ void GpuRenderer::build(const rt::Video &video, int w, int h, int scale) {
 
 void GpuRenderer::prepare_panorama(SDL_GPUCommandBuffer *cmd, const rt::Video &video) {
     if (video.panorama().original) {
-        if (!video.panorama_active() || original_panorama_instance_ == video.instance()) return;
-        const uint32_t bytes = rt::Panorama::Width * rt::Panorama::SourceHeight * 2;
-        if (!tilepix_extended_) {
+        if (!video.panorama_active() || (original_panorama_instance_ == video.instance() &&
+            original_panorama_course_ == video.panorama().cached_course)) return;
+        const uint32_t bytes = uint32_t(video.panorama().indices.size() * sizeof(uint16_t));
+        if (tilepix_panorama_bytes_ < bytes) {
             SDL_GPUBufferCreateInfo info{};
             info.usage = SDL_GPU_BUFFERUSAGE_GRAPHICS_STORAGE_READ;
             info.size = kTilePixBytes + bytes;
@@ -365,7 +367,7 @@ void GpuRenderer::prepare_panorama(SDL_GPUCommandBuffer *cmd, const rt::Video &v
             if (!buffer) throw std::runtime_error(std::string("panorama buffer: ") + SDL_GetError());
             SDL_ReleaseGPUBuffer(dev_, tilepix_);
             tilepix_ = buffer;
-            tilepix_extended_ = true;
+            tilepix_panorama_bytes_ = bytes;
             tile_instance_ = 0; // the replacement needs all four ordinary layers too
         }
         SDL_GPUTransferBufferCreateInfo info{};
@@ -386,6 +388,7 @@ void GpuRenderer::prepare_panorama(SDL_GPUCommandBuffer *cmd, const rt::Video &v
         SDL_EndGPUCopyPass(copy);
         SDL_ReleaseGPUTransferBuffer(dev_, upload);
         original_panorama_instance_ = video.instance();
+        original_panorama_course_ = video.panorama().cached_course;
         ++panorama_uploads_;
         return;
     }
@@ -524,6 +527,8 @@ void GpuRenderer::render(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *target, int 
     tiledata_words_[2] = uint32_t(scale);
     tiledata_words_[3] = uint32_t(video.panorama_active() && video.panorama().original);
     tiledata_words_[4] = uint32_t(video.panorama().scroll_x());
+    tiledata_words_[5] = rt::Panorama::SourceY;
+    tiledata_words_[6] = video.panorama().source_height();
     std::memcpy(&tiledata_words_[kTileHeader], video.gpu_pens(), rt::Video::kGpuPens * 4);
     std::memcpy(&tiledata_words_[kTileHeader + rt::Video::kGpuPens], video.gpu_tile_words(), rt::Video::kGpuTileWords * 2);
     const uint32_t tiledata_at = at;

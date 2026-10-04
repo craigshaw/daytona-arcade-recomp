@@ -228,8 +228,9 @@ float4 ps_quad(QuadOut i) : SV_Target {
 //            the pens (0xAARRGGBB, 4096); [16 + 4096..] tile RAM words 0x4000 to
 //            0x6fff (line scroll tables, scroll registers, window masks), two
 //            per word
-// Optional original panorama: tiledata[3] enabled, [4] full scroll; packed
-// 2048x392 u16 palette indices/category follow the four pixmaps in tilepix.
+// Optional original panorama: tiledata[3] enabled, [4] full scroll,
+// [5] source Y, [6] course height. Packed 2048-wide u16 palette indices/category
+// follow the four pixmaps in tilepix.
 [[vk::binding(0, 2)]] StructuredBuffer<uint> tilepix : register(t0, space2);
 [[vk::binding(1, 2)]] StructuredBuffer<uint> tiledata : register(t1, space2);
 
@@ -250,9 +251,10 @@ uint tile_pixel(uint l, int x, int y) {
 
 uint sky_pixel(uint l, int x, int y, int screen_x, bool opaque) {
     const int sy = y & 511;
-    if (tiledata[3] != 0u && opaque && l == 2u && sy >= 48 && sy < 440) {
+    const int top = int(tiledata[5]), bottom = top + int(tiledata[6]);
+    if (tiledata[3] != 0u && opaque && l == 2u && sy >= top && sy < bottom) {
         const uint u = uint(screen_x - int(tiledata[4])) & 2047u;
-        const uint index = 4u * 512u * 512u + uint(sy - 48) * 2048u + u;
+        const uint index = 4u * 512u * 512u + uint(sy - top) * 2048u + u;
         const uint d = tilepix[index >> 1];
         return (index & 1u) != 0u ? d >> 16 : d & 0xffffu;
     }

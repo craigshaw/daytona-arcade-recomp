@@ -27,6 +27,8 @@ public:
                 << ",\"panorama_vertical\":" << v.panorama().vertical
                 << ",\"panorama_original\":" << (v.panorama().original ? "true" : "false")
                 << ",\"panorama_source_valid\":" << (v.panorama().source_valid ? "true" : "false")
+                << ",\"panorama_course\":" << unsigned(v.panorama().cached_course)
+                << ",\"panorama_height\":" << v.panorama().source_height()
                 << ",\"palette_generation\":" << v.system24_palette_generation()
                 << ",\"sky_colour\":" << v.system24_pen(v.system24_pixels(2)[0])
                 << ",\"scroll\":[";
