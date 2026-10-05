@@ -1,6 +1,6 @@
 # Original panorama milestone
 
-All three Revision A courses, opt-in capture tools. The complete original
+All three courses in Revision A and Deluxe '93, opt-in capture tools. The complete original
 sky is decoded from the user's imported ROM; no extracted PNG or replacement
 artwork is required. The normal launcher and default rendering are unchanged.
 This follows the design document's Renderer and Enhancements sections.
@@ -22,9 +22,9 @@ This follows the design document's Renderer and Enhancements sections.
   vertical splits, window masks, overlay priorities, HUD and foreground.
   Source pixels retain their native size at both 16:9 and 32:9.
 - Use the existing latched full camera phase. Before activating, check the
-  course selector/descriptor, supported scroll state, visible streamed map columns
+  revision-specific course descriptor, supported scroll state, visible streamed map columns
   and original character data. Loading or stale source states fall back.
-- Original view, the unverified fourth source and other ROM sets retain the existing
+- Original view, the unverified fourth source and unsupported states retain the existing
   renderer. In a supported scene this mode takes precedence over stretching;
   elsewhere the selected legacy background mode remains in force.
 
@@ -73,6 +73,10 @@ Use `--course advanced` or `--course expert` for the other courses, each with
 its own output directory. The default is Beginner. Each replay exercises all
 four race cameras; consecutive loading and wrap checks follow that course's
 observed activation and full-phase wrap rather than Beginner's frame numbers.
+Use `--set daytona93` for Deluxe '93 (default build directory `build-daytona93`,
+or pass `--build-dir`). The build's configured ROM set must match. The '93
+Expert wrap control adds a right turn when the standard replay does not
+cross that boundary. Loading checks exclude the earlier attract activation.
 
 `--panorama-only` isolates the complete back-layer composite, including when
 the extension is disabled, for exact software/GPU comparisons. It is a
@@ -147,6 +151,72 @@ Raw frames and per-frame logs are deleted after comparison; only compact
 records and selected PNGs remain. Validation is against the existing renderer,
 not a new MAME comparison; runtime GPU checks still cover Direct3D 12 only.
 
-Remaining scope: Deluxe '93, live launcher switching and runtime testing on
+## Deluxe '93 support — 5 October 2026
+
+The two revisions share all 24 panorama map sections and all character-upload
+blocks byte-for-byte, including source addresses and heights. The source
+tables remain 0x2074240 / 0x2081180 / 0x2074268 for Beginner / Advanced / Expert.
+Only their descriptor locations and the observer's RAM addresses differ:
+
+| Location | Revision A | Deluxe '93 |
+| --- | --- | --- |
+| Full sky phase (16-bit) | 0x5fe11a | 0x53e11a |
+| Selected backdrop descriptor pointer | 0x5fe5e4 | 0x53e5d4 |
+| Beginner / Expert / Advanced descriptors | 0x2600020 / 0x2600040 / 0x2600060 | 0x2800020 / 0x2800040 / 0x2800060 |
+| Program's descriptor lookup table | 0x4770 | 0x3a48 |
+
+'93 selects the descriptor at 0x39c0..0x39d0. Its sky update at
+0x1c674..0x1c688 shifts the full phase by five bits, masks to 511 and writes
+0x501308; 0x1a0d4/0x1a16c transfers that value to tile register 0x100a004.
+The course ID remains at 0x501460. These were checked in the imported ROM,
+not inferred from a uniform RAM relocation. Local address/hash evidence is
+under ignored `traces/daytona93-panorama/mapping/`.
+
+The runtime and read-only capture telemetry use `panorama_revision.h` for
+these addresses. The decoder, cache and shaders are shared without extra
+assets, memory or rendering passes. The temporary `--panorama-proof` artwork
+remains Revision A-only; `--panorama-original` supports both revisions.
+
+The supplied `daytona93.zip` is a split set. This run imported the complete
+'93 set from the already verified merged `roms/daytona.zip`, using the '93
+build's importer, into `build-daytona93/rom_cache/daytona93`. It did not change
+either archive or the Revision A build's ROM cache. Both builds use the
+existing Visual Studio 2022 ClangCL toolchain. The saved single-cabinet
+settings and existing three course replays reach the expected '93 races.
+
+Validation passed 64 replay jobs / 2,908 captures / 48 comparison groups /
+2,105 pixel comparisons across the three courses. A separate Beginner race
+loading control adds two jobs / 92 captures / 46 comparisons. It activates at
+frame 2586; the first run had selected the earlier attract activation, which
+the runner now excludes. Each course remains active for all 3,001 frames from
+3000 through 6000 in both widescreen aspects. Coverage includes CPU/GPU skies,
+unchanged original centres, 16:9 crops of 32:9, all four cameras, native view,
+HUD placement, 2x sampling, stretch precedence and loading/wrap transitions.
+
+The standard '93 Expert replay never crosses the full-phase boundary during
+the race, so its initial validation stopped for missing coverage. The added
+right-steer control crosses at frame 5311; all 18 consecutive wrap frames stay
+active and preserve the original centre. Beginner and Advanced wrap at frames
+3701 and 3615. The 18,000-frame Advanced/Expert controls traverse Beginner ->
+selected course -> Beginner with exactly three uploads. Eight game instances
+sharing one GPU renderer pass all 32 synthetic fade/restore stages, preserving
+CPU/GPU equality, palette contents and one upload per instance.
+
+Disabled '93 output matches the pre-change executables in all 240 sampled
+full-frame GPU/software comparisons. A further 1,320 Revision A captures
+across 18 jobs match the previous milestone byte-for-byte. Both Release game
+and capture-tool builds pass, alongside the '93 panorama CTest, three Revision
+A targeted CTests and five capture utility tests. No shaders changed in this
+milestone; runtime GPU validation covers Direct3D 12. Compact hashes, address
+evidence and an interactive before/after gallery are retained locally under
+ignored `traces/daytona93-panorama/` after deleting raw captures and frame logs.
+
+```powershell
+python scripts/original_panorama_validate.py --set daytona93 --course beginner --nvram traces/widescreen-32x9/nvram --output traces/daytona93-repeat/beginner
+python scripts/original_panorama_validate.py --set daytona93 --course advanced --nvram traces/widescreen-32x9/nvram --output traces/daytona93-repeat/advanced
+python scripts/original_panorama_validate.py --set daytona93 --course expert --nvram traces/widescreen-32x9/nvram --output traces/daytona93-repeat/expert
+```
+
+Remaining scope: live launcher switching and runtime testing on
 other GPU backends. The fourth ROM source remains unverified. Shared
 SPIR-V, DXIL and MSL shaders are regenerated from the same HLSL source.

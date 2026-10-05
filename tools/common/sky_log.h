@@ -1,6 +1,7 @@
 // Read-only background telemetry for the panorama prototype.
 #pragma once
 #include "runtime/game_loop.h"
+#include "runtime/panorama_revision.h"
 #include <fstream>
 
 namespace tools {
@@ -15,11 +16,12 @@ public:
         if (!stream_.is_open()) return;
         auto &b = game.board();
         const auto &v = b.video();
+        const auto *revision = rt::panorama_revision(M2_ROMSET);
         stream_ << "{\"frame\":" << b.frame() << ",\"course\":" << unsigned(b.read_byte(0x501460))
+                << ",\"romset\":\"" << M2_ROMSET << "\""
                 << ",\"windows\":" << v.gpu_windows() << ",\"backdrop\":" << int(v.backdrop())
-                << ",\"sky_phase\":" << b.read_word(0x5fe11a)
-                << ",\"camera_phase\":" << b.read_dword(0x50174c)
-                << ",\"sky_offset\":" << b.read_dword(0x501748)
+                << ",\"sky_phase\":" << (revision ? b.read_word(revision->phase) : 0)
+                << ",\"descriptor_slot\":" << (revision ? b.read_dword(revision->selector) : 0)
                 << ",\"tile_generation\":" << v.system24_texture_generation()
                 << ",\"panorama\":" << (v.panorama_active() ? "true" : "false")
                 << ",\"panorama_phase\":" << v.panorama().phase

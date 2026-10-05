@@ -1,4 +1,5 @@
 #include "runtime/panorama.h"
+#include "runtime/panorama_revision.h"
 #include <cstdio>
 #include <cstdlib>
 
@@ -6,6 +7,14 @@ int main() {
     auto check = [](bool value, const char *message) {
         if (!value) { std::fprintf(stderr, "%s\n", message); std::exit(1); }
     };
+    for (const char *romset : {"daytona", "daytona93"}) {
+        const auto *revision = rt::panorama_revision(romset);
+        check(revision && revision->phase && revision->selector, "supported revision needs observer addresses");
+        for (unsigned course = 0; course < 3; ++course)
+            check(revision->descriptor(course) != 0, "playable course needs a descriptor");
+        check(!revision->descriptor(3) && !revision->descriptor(255), "unverified course must have no descriptor");
+    }
+    check(!rt::panorama_revision("unknown"), "unsupported ROM must not use another revision's addresses");
     rt::Panorama p;
     check(p.pixels.empty(), "disabled prototype must allocate no texture");
     p.enable(true);

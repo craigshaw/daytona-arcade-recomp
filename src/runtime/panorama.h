@@ -41,16 +41,16 @@ public:
     // The game derives layer-2 hscroll from phase >> 5, then masks to 511.
     // Retain the full 16-bit phase: one complete cycle spans 2048 texels.
     int scroll_x() const { return int(phase >> 5); }
-    // Revision A: eight original 32-column tile maps per course. Keep palette
+    // Both revisions share eight original 32-column tile maps per course. Keep palette
     // indices/category, not RGB, so the normal per-frame pens supply fades.
     // ROM offsets are verified in docs/backdrop-inventory.md; no ROM data
     // is embedded in the executable or loaded from extracted image files.
     static constexpr int SourceY = 48;
-    struct Source { uint32_t descriptor, table; unsigned height; };
+    struct Source { uint32_t table; unsigned height; };
     static const Source *source_for(unsigned course) {
         // Game IDs are Beginner / Expert / Advanced, not menu order.
-        static constexpr Source sources[] = {{0x2600020, 0x2074240, 392},
-            {0x2600040, 0x2074268, 432}, {0x2600060, 0x2081180, 344}};
+        static constexpr Source sources[] = {{0x2074240, 392},
+            {0x2074268, 432}, {0x2081180, 344}};
         return course < 3 ? &sources[course] : nullptr;
     }
     unsigned source_height() const {

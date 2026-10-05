@@ -1,6 +1,7 @@
 // Read-only snapshots of decoded System 24 layers for local asset inspection.
 #pragma once
 #include "runtime/game_loop.h"
+#include "runtime/panorama_revision.h"
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
@@ -30,9 +31,11 @@ inline void dump_tiles(rt::GameLoop &game, const std::string &directory) {
         characters[i] = game.board().read_byte(0x01080000 + i);
     save(prefix.str() + "_characters.bin", characters.data(), characters.size());
     std::ofstream meta(prefix.str() + "_source.json");
+    const auto *revision = rt::panorama_revision(M2_ROMSET);
     meta << "{\"frame\":" << game.frames()
+         << ",\"romset\":\"" << M2_ROMSET << "\""
          << ",\"course\":" << unsigned(game.board().read_byte(0x501460))
-         << ",\"descriptor_slot\":" << game.board().read_dword(0x5fe5e4) << "}\n";
+         << ",\"descriptor_slot\":" << (revision ? game.board().read_dword(revision->selector) : 0) << "}\n";
     if (!meta) throw std::runtime_error("cannot write tile source metadata");
     for (int layer = 0; layer < 4; ++layer) {
         const std::string base = prefix.str() + "_layer" + std::to_string(layer);

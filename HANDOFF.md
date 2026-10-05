@@ -2,6 +2,45 @@
 
 ## Current state
 
+**Deluxe '93 original panoramas implemented and validated (5 Oct 2026).**
+`--panorama-original` now supports all three courses in both revisions,
+through the capture tools. All 24 panorama map sections and their character
+uploads are byte-identical between revisions. `panorama_revision.h` selects
+the verified phase, descriptor-pointer and descriptor-base addresses; these
+are not a uniform relocation. Decoder, shaders, cache sizes and tile passes
+are unchanged. The proof artwork remains Revision A-only. Launcher integration
+is still separate work.
+
+The '93 matrix passes 64 jobs / 2,908 captures / 48 groups / 2,105 pixel
+comparisons, plus two Beginner race-loading jobs / 92 captures / 46 comparisons.
+All three courses remain active throughout frames 3000..6000 at 16:9 and 32:9.
+CPU/GPU skies, original centres, aspect crops, four cameras, loading and wrap
+boundaries, native view, HUD, 2x sampling and stretch precedence pass. Disabled
+output matches pre-change '93 executables; 1,320 Revision A captures across
+18 jobs match the previous milestone byte-for-byte. Eight '93 game instances
+sharing one GPU renderer pass all 32 synthetic palette stages. Longer Advanced
+and Expert runs change Beginner -> selected course -> Beginner with three
+uploads. Direct3D 12 tested; no new MAME-parity claim.
+
+The standard '93 Expert replay did not cross the full phase boundary, so its
+initial validation stopped for missing coverage. The committed right-steer
+wrap control crosses at frame 5311 and stays active for all 18 boundary frames.
+The runner now excludes early attract activation from race-loading selection;
+a separate Beginner check covers frames 2560..2605, activating at 2586. These
+were replay-coverage fixes, not renderer pixel mismatches.
+
+Native '93 ROM import and recompilation use the complete merged `daytona.zip`
+with the '93 importer; the supplied split ZIP alone lacks shared files. Both
+Release game/tool builds pass, as do the '93 panorama CTest, three Revision A
+targeted CTests and five capture utility tests. MSBuild requires the sandbox
+escalation on this host because its environment otherwise contains duplicate
+Path/PATH keys. No shader regeneration was needed for this address-only change.
+Procedure: `docs/original-panorama.md`. Compact evidence, summaries and gallery:
+ignored `traces/daytona93-panorama/`. Raw captures and frame logs are removed
+after verification. This milestone is recorded on `widescreen-32x9`.
+Next: integrate the original panorama option into the playable launcher and
+validate live setting changes; other GPU backends remain untested.
+
 **Advanced and Expert original panoramas implemented (4 Oct 2026).**
 `--panorama-original` now selects all three Revision A race skies automatically.
 Course IDs 0 / 2 / 1 use heights 392 / 344 / 432 at source Y 48. One CPU cache

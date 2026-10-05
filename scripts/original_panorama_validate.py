@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a Revision A course's original sky, retaining hashes and a small gallery.
+"""Validate a course's original sky, retaining hashes and a small gallery.
 
 Needs NumPy. Raw captures/frame logs are discarded after measuring each job.
 Use a fresh ignored output directory when executables or inputs change.
@@ -27,12 +27,18 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--nvram', type=Path, required=True)
-    parser.add_argument('--build-dir', type=Path, default=ROOT / 'build-daytona')
+    parser.add_argument('--set', choices=['daytona', 'daytona93'], default='daytona')
+    parser.add_argument('--build-dir', type=Path)
     parser.add_argument('--baseline-tools', type=Path)
     parser.add_argument('--bench', action='store_true')
     parser.add_argument('--course', choices=['beginner', 'advanced', 'expert'], default='beginner')
     args = parser.parse_args()
-    out, build = args.output.resolve(), args.build_dir.resolve()
+    out = args.output.resolve()
+    build = (args.build_dir or ROOT / f'build-{args.set}').resolve()
+    cache = (build / 'CMakeCache.txt').read_text()
+    if not re.search(r'^M2_ROMSET:[^=]+=' + re.escape(args.set) + r'$', cache, re.MULTILINE):
+        raise SystemExit('Build ROM set does not match --set')
+    rom_dir = build / 'rom_cache' / args.set
     # Deletion is limited to generated files inside this dedicated ignored run.
     if not out.is_relative_to(ROOT / 'traces') or out == ROOT / 'traces' or out.is_symlink():
         raise SystemExit('Output must be a dedicated directory beneath traces/')
@@ -40,10 +46,10 @@ def main():
     input_file = 'race_to_end.txt' if args.course == 'beginner' else f'widescreen_{args.course}.txt'
     course_id = {'beginner': 0, 'advanced': 2, 'expert': 1}[args.course]
     inputs = (ROOT / 'scripts/inputs' / input_file).read_text() + '\n3200-3209 vr1=1\n3800-3809 vr2=1\n4400-4409 vr3=1\n5000-5009 vr4=1\n'
-    signature = {'tools': {r: digest(p.read_bytes()) for r, p in tools.items()},
+    signature = {'set': args.set, 'tools': {r: digest(p.read_bytes()) for r, p in tools.items()},
                  'inputs': digest(inputs.encode()), 'runner': digest(Path(__file__).read_bytes()),
                  'nvram': {n: digest((args.nvram / n).read_bytes()) for n in ['ioboard_eeprom.bin', 'backup_ram.bin']},
-                 'rom': {p.name: digest(p.read_bytes()) for p in sorted((build / 'rom_cache/daytona').glob('*.bin'))}}
+                 'rom': {p.name: digest(p.read_bytes()) for p in sorted(rom_dir.glob('*.bin'))}}
     out.mkdir(parents=True, exist_ok=True)
     manifest = out / 'manifest.json'
     if manifest.exists():
@@ -62,12 +68,12 @@ def main():
             raise RuntimeError(f'Unsafe generated path: {path}')
         path.unlink()
 
-    def run(name, renderer, aspect='32:9', frames=6000, every=300, first=0, flags=(), baseline=False):
+    def run(name, renderer, aspect='32:9', frames=6000, every=300, first=0, flags=(), baseline=False, inputs_override=None):
         folder = out / name
         folder.mkdir(parents=True, exist_ok=True)
         exe = tools[renderer] if not baseline else args.baseline_tools.resolve() / tools[renderer].name
-        script = out / 'inputs.txt'
-        command = [str(exe), str(build / 'rom_cache/daytona'), str(frames), '--nvram', str(out / 'nvram'),
+        script = inputs_override or out / 'inputs.txt'
+        command = [str(exe), str(rom_dir), str(frames), '--nvram', str(out / 'nvram'),
                    '--inputs', str(script), '--dump', str(folder), '--dump-from', str(first), '--every', str(every),
                    '--sky-log', str(folder / 'sky.jsonl')]
         if aspect:
@@ -93,7 +99,9 @@ def main():
         record = {'key': key, 'seconds': time.perf_counter() - start, 'images': {},
                   'active_frames': sum(r['panorama'] for r in rows),
                   'race_inactive': [r['frame'] for r in rows if 3000 <= r['frame'] <= 6000 and not r['panorama']],
-                  'first_course_active': next((r['frame'] for r in rows if r['panorama'] and r['course'] == course_id), None),
+                  # These race replays finish their menu confirmations at 2400;
+                  # exclude the earlier attract activation from the loading test.
+                  'first_course_active': next((r['frame'] for r in rows if r['frame'] >= 2400 and r['panorama'] and r['course'] == course_id), None),
                   'natural_wraps': [b['frame'] for a, b in zip(rows, rows[1:])
                                     if a['panorama'] and b['panorama'] and a['course'] == b['course'] == course_id
                                     and abs(a['panorama_phase'] - b['panorama_phase']) > 64000],
@@ -157,10 +165,20 @@ def main():
     cpu = run('32x9/sky-software', 'software', every=60, flags=original + isolated)
     compare('Software/GPU complete background', cpu, skies['32:9'])
     wraps = [f for f in skies['32:9']['natural_wraps'] if f >= 3000]
+    wrap_script = None
+    if not wraps and args.set == 'daytona93' and args.course == 'expert':
+        wrap_script = ROOT / 'scripts/inputs/panorama_daytona93_expert_wrap.txt'
+        probe = run('wrap/probe', 'hardware', first=3000, every=6000,
+                    flags=original + isolated, inputs_override=wrap_script)
+        assert not probe['race_inactive'], 'Wrap steering caused panorama fallback'
+        wraps = probe['natural_wraps']
     assert wraps, f'{args.course}: replay needs a natural wrap to validate'
     wrap = wraps[0]
-    detail_off = run('wrap/off', 'hardware', frames=wrap + 10, first=wrap - 7, every=1, flags=isolated)
-    detail_on = run('wrap/original', 'hardware', frames=wrap + 10, first=wrap - 7, every=1, flags=original + isolated)
+    detail_off = run('wrap/off', 'hardware', frames=wrap + 10, first=wrap - 7, every=1,
+                     flags=isolated, inputs_override=wrap_script)
+    detail_on = run('wrap/original', 'hardware', frames=wrap + 10, first=wrap - 7, every=1,
+                    flags=original + isolated, inputs_override=wrap_script)
+    assert detail_on['active_frames'] == 18, 'Panorama must stay active through the full-phase wrap'
     compare('Consecutive natural full-phase wrap: centre unchanged', detail_on, detail_off, 'centre')
     loading = skies['32:9']['first_course_active']
     loading_off = run('loading/off', 'hardware', frames=loading + 25, first=max(1, loading - 20), every=1, flags=isolated)
@@ -191,7 +209,7 @@ def main():
     if args.bench:
         benchmarks = []
         for mode in ['off', 'original', 'original', 'off']:
-            command = [str(tools['hardware']), str(build / 'rom_cache/daytona'), '6000', '--inputs', str(out / 'inputs.txt'),
+            command = [str(tools['hardware']), str(rom_dir), '6000', '--inputs', str(out / 'inputs.txt'),
                        '--nvram', str(out / 'nvram'), '--aspect', '32:9', '--bench', '--bench-from', '3000']
             if mode == 'original':
                 command += original
