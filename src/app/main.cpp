@@ -21,6 +21,7 @@
 #include "app/launcher.h"
 #include "app/native_audio.h"
 #include "app/video_settings.h"
+#include "app/performance_overlay.h"
 #include "runtime/native_sound_engine.h"
 #include "runtime/game_loop.h"
 #include "runtime/rom_import.h"
@@ -270,6 +271,11 @@ int main(int argc, char **argv) {
     app::ForceFeedback ffb; // the drive board on the steering device
     std::unique_ptr<app::TcpLink> link; // link play (declared first: outlives the game, which holds it)
     std::unique_ptr<rt::GameLoop> game;
+    app::Performance performance(kArcadeHz);
+    uint64_t sample_boundary = 0;
+    auto clear_performance = [&] { performance.clear(); sample_boundary = 0; };
+    const auto profile_clock = +[]() -> uint64_t { return SDL_GetTicksNS(); };
+    const char *performance_notice = "";
     const std::string eeprom_path = pref_file("ioboard_eeprom.bin"), backup_path = pref_file("backup_ram.bin");
     auto save_nv = [&] {
         if (!game) return;
@@ -277,6 +283,7 @@ int main(int argc, char **argv) {
         save_file(backup_path, game->board().backup_ram());
     };
     auto start_game = [&] {
+        clear_performance();
         save_nv();
         ffb.stop();
         native_audio.close(); // joins callback before replacing its ROMs/engine
@@ -301,6 +308,8 @@ int main(int argc, char **argv) {
                 if (!have_audio) std::fprintf(stderr, "daytona: reference audio unavailable (%s)\n", SDL_GetError());
             }
             game = std::make_unique<rt::GameLoop>(std::move(images), !native_active);
+            game->set_profile_clock(performance.detailed() ? profile_clock : nullptr);
+            game->board().video().set_profile_clock(performance.detailed() ? profile_clock : nullptr);
             std::printf("daytona: audio backend %s\n", native_active
                 ? "native (experimental, 48000 Hz device clock; no reference sound board)" : "reference");
             load_file(eeprom_path, game->board().io().eeprom);
@@ -347,6 +356,10 @@ int main(int argc, char **argv) {
     const double frame_ns = 1e9 / kArcadeHz;
 
     while (running) {
+        uint64_t loop_begin = performance.enabled() ? SDL_GetTicksNS() : 0;
+        app::Performance::Sample sample;
+        const bool was_launcher = in_launcher;
+        bool save_performance = false;
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             devices.handle_event(e);
@@ -360,8 +373,31 @@ int main(int argc, char **argv) {
                 if (!launcher.handle_event(e)) ImGui_ImplSDL3_ProcessEvent(&e);
             } else if (e.type == SDL_EVENT_KEY_DOWN && e.key.scancode == SDL_SCANCODE_ESCAPE) {
                 in_launcher = true; // pause and show the launcher
+            } else if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat && e.key.scancode == SDL_SCANCODE_F10) {
+                performance.cycle();
+                sample_boundary = 0;
+                performance_notice = "";
+                loop_begin = 0; // do not mix the old/new measurement modes
+                game->set_profile_clock(performance.detailed() ? profile_clock : nullptr);
+                game->board().video().set_profile_clock(performance.detailed() ? profile_clock : nullptr);
+            } else if (e.type == SDL_EVENT_KEY_DOWN && !e.key.repeat && e.key.scancode == SDL_SCANCODE_F9 && performance.detailed()) {
+                save_performance = in_launcher = true;
             }
         }
+
+        if (save_performance) {
+            // Explicitly paused: neither disk I/O nor this pause enters the sample buffer.
+            sync_native_audio();
+            const std::string path = pref_file("performance.csv");
+            std::ofstream output(path);
+            performance.write_csv(output, M2_ROMSET, SDL_GetGPUDeviceDriver(dev));
+            output.close();
+            performance_notice = output ? "Saved performance.csv in the settings folder" : "Could not save performance.csv";
+            std::printf("daytona: %s: %s\n", performance_notice, path.c_str());
+        }
+        if (in_launcher != was_launcher) clear_performance();
+        const bool measuring = game && !in_launcher && loop_begin && performance.enabled();
+        const bool timing = measuring && performance.detailed();
 
         sync_native_audio();
         if (native_active) {
@@ -387,12 +423,16 @@ int main(int argc, char **argv) {
 
         // Game: arcade speed (57.52 frames/s), presented at the display's rate.
         const uint64_t now = SDL_GetTicksNS();
-        pending = std::min(pending + double(now - last), frame_ns * 4);
+        const double accrued = pending + double(now - last);
+        if (measuring) sample.discarded = uint64_t(std::max(0.0, accrued - frame_ns * 4));
+        pending = std::min(accrued, frame_ns * 4);
         last = now;
         if (game && !in_launcher) {
             app::apply_video_settings(*game, cfg, gpu.ok());
             while (pending >= frame_ns) {
                 game->run_frame(cfg.controls.sample(SDL_GetKeyboardState(nullptr), devices));
+                if (timing) sample.update(game->last_profile(), game->board().video().last_profile(), frame_ns);
+                else if (measuring) ++sample.updates;
                 if (native_active) {
                     const auto bytes = game->board().take_sound_bytes();
                     if (!native_audio.send(bytes.data(), bytes.size())) {
@@ -420,6 +460,7 @@ int main(int argc, char **argv) {
             ffb.stop(); // paused in the launcher: let the wheel go
         }
 
+        uint64_t measured_at = timing ? SDL_GetTicksNS() : 0;
         SDL_GPUCommandBuffer *cmd = SDL_AcquireGPUCommandBuffer(dev);
         if (!cmd) return fail("SDL_AcquireGPUCommandBuffer");
         const bool hardware = game && game->board().video().external_3d();
@@ -471,29 +512,37 @@ int main(int argc, char **argv) {
             new_frame = false;
         }
 
+        if (timing) sample.render = SDL_GetTicksNS() - measured_at;
+
         ImDrawData *draw = nullptr;
-        if (in_launcher) {
+        measured_at = timing ? SDL_GetTicksNS() : 0;
+        if (in_launcher || performance.enabled()) {
+            const bool launcher_ui = in_launcher;
             ImGui_ImplSDLGPU3_NewFrame();
             ImGui_ImplSDL3_NewFrame();
             ImGui::NewFrame();
-            switch (launcher.draw(game != nullptr, devices)) {
+            if (in_launcher) switch (launcher.draw(game != nullptr, devices)) {
             case app::Launcher::StartGame:
             case app::Launcher::Reset:
                 if (start_game()) in_launcher = false, have_frame = false;
                 break;
-            case app::Launcher::Resume: in_launcher = false; break;
+            case app::Launcher::Resume: in_launcher = false; clear_performance(); performance_notice = ""; break;
             case app::Launcher::Quit: running = false; break;
             default: break;
             }
-            sync_native_audio();
+            if (performance.enabled()) app::draw_performance(performance, in_launcher, performance_notice);
+            if (launcher_ui) sync_native_audio();
             ImGui::Render();
             draw = ImGui::GetDrawData();
             ImGui_ImplSDLGPU3_PrepareDrawData(draw, cmd);
         }
+        if (timing) sample.overlay = SDL_GetTicksNS() - measured_at;
 
         SDL_GPUTexture *swap = nullptr;
         Uint32 sw = 0, sh = 0;
+        measured_at = timing ? SDL_GetTicksNS() : 0;
         if (!SDL_WaitAndAcquireGPUSwapchainTexture(cmd, window, &swap, &sw, &sh)) return fail("swapchain");
+        if (timing) sample.wait = SDL_GetTicksNS() - measured_at;
         if (swap) {
             if (have_frame) { // the game's screen at its own shape, letterboxed
                 const double scale = std::min(double(sw) / screen_w, double(sh) / H);
@@ -524,11 +573,36 @@ int main(int argc, char **argv) {
                 ct.store_op = SDL_GPU_STOREOP_STORE;
                 ct.clear_color = SDL_FColor{0.05f, 0.05f, 0.08f, 1};
                 SDL_GPURenderPass *pass = SDL_BeginGPURenderPass(cmd, &ct, 1, nullptr);
-                if (draw) ImGui_ImplSDLGPU3_RenderDrawData(draw, cmd, pass);
+                if (draw) {
+                    measured_at = timing ? SDL_GetTicksNS() : 0;
+                    ImGui_ImplSDLGPU3_RenderDrawData(draw, cmd, pass);
+                    if (timing) sample.overlay += SDL_GetTicksNS() - measured_at;
+                }
                 SDL_EndGPURenderPass(pass);
             }
         }
-        SDL_SubmitGPUCommandBuffer(cmd);
+        measured_at = timing ? SDL_GetTicksNS() : 0;
+        const bool submitted = SDL_SubmitGPUCommandBuffer(cmd);
+        if (timing) sample.submit = SDL_GetTicksNS() - measured_at;
+        if (measuring && !in_launcher) {
+            const auto end = SDL_GetTicksNS();
+            // Consecutive boundaries include sampling overhead and host stalls
+            // between iterations, not just work inside this iteration.
+            sample.wall = end - (sample_boundary ? sample_boundary : loop_begin);
+            sample_boundary = end;
+            sample.frame = game->frames();
+            sample.presents = swap && submitted;
+            sample.width = uint32_t(game->screen_width());
+            sample.hardware = hardware;
+            sample.course = game->board().read_byte(0x501460);
+            sample.panorama = game->board().video().panorama_active();
+            sample.polygons = uint32_t(game->board().video().gpu_polys().size());
+            sample.hud = cfg.hud_edges;
+            sample.distance = cfg.draw_distance; sample.budget = cfg.draw_budget;
+            sample.skip = cfg.draw_mode; sample.scale = cfg.supersampling;
+            sample.native_audio = native_active;
+            performance.push(sample);
+        }
     }
 
     save_nv();

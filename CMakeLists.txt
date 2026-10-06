@@ -198,7 +198,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/extern/sdl3/CMakeLists.txt)
     add_library(gpurender STATIC src/app/gpu/gpu_renderer.cpp)
     target_include_directories(gpurender PUBLIC src)
     target_link_libraries(gpurender PUBLIC runtime SDL3::SDL3-static)
-    add_library(daytona_app OBJECT src/app/main.cpp src/app/launcher.cpp src/app/config.cpp src/app/controls.cpp src/app/ffb.cpp src/app/link_socket.cpp)
+    add_library(daytona_app OBJECT src/app/main.cpp src/app/launcher.cpp src/app/config.cpp src/app/controls.cpp src/app/ffb.cpp src/app/link_socket.cpp src/app/performance.cpp)
     target_link_libraries(daytona_app PRIVATE runtime imgui gpurender SDL3::SDL3-static)
     if(WIN32)
         target_link_libraries(daytona_app PUBLIC ws2_32) # link play's sockets
@@ -235,6 +235,9 @@ if(EXISTS ${GEN_DIR}/gen_table.cpp AND EXISTS ${TGP_GEN} AND EXISTS ${SND_GEN})
         add_executable(m2panoramacheck EXCLUDE_FROM_ALL tests/panorama_palette.cpp tests/panorama_play.cpp
             src/app/config.cpp src/app/controls.cpp ${GEN_SOURCES} ${TGP_GEN} ${SND_GEN})
         target_link_libraries(m2panoramacheck PRIVATE runtime gpurender)
+        add_executable(m2perfcheck EXCLUDE_FROM_ALL tests/performance_play.cpp src/app/performance.cpp
+            src/app/config.cpp src/app/controls.cpp ${GEN_SOURCES} ${TGP_GEN} ${SND_GEN})
+        target_link_libraries(m2perfcheck PRIVATE runtime imgui)
     else()
         message(STATUS "extern/sdl3 not found: skipping the windowed game (run scripts/setup.py)")
     endif()
@@ -284,6 +287,10 @@ add_executable(traceinfo tools/traceinfo/main.cpp)
 target_link_libraries(traceinfo PRIVATE trace)
 
 enable_testing()
+
+add_executable(test_app_performance tests/test_app_performance.cpp src/app/performance.cpp)
+target_include_directories(test_app_performance PRIVATE src)
+add_test(NAME app_performance COMMAND test_app_performance)
 
 add_executable(test_panorama tests/test_panorama.cpp)
 target_include_directories(test_panorama PRIVATE src)

@@ -158,6 +158,7 @@ void M2Board::set_wide_margin(int pixels) {
 
 void M2Board::vblank_end() {
     if (frame_skip_ && frame_ % uint64_t(frame_skip_ + 1) != 0) { // draw mode: keep the last picture
+        video_->reset_profile();
         ++frame_;
         return;
     }

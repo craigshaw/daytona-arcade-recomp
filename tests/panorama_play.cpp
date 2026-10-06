@@ -80,6 +80,15 @@ void check_play_panorama(SDL_GPUDevice *device, app::GpuRenderer &gpu, SDL_GPUTe
             video.screen_update(polys, windows, mem);
             require(video.screen() == control.screen(), "automatic/explicit software background mismatch");
             const auto software = video.screen();
+            if (video.panorama_active()) {
+                // Keep the live phase, but use the capture sweep's scalar,
+                // full-width compositor as a reference for the margin path.
+                video.panorama().sweep = true;
+                video.screen_update(polys, windows, mem);
+                require(video.screen() == software, "margin/scalar panorama mismatch");
+                video.panorama().sweep = false;
+                ++comparisons;
+            }
             video.set_external_3d(true, true);
             video.screen_update(polys, windows, mem);
             if (video.panorama_active() && (uploaded_instance != video.instance() ||

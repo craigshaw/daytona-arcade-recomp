@@ -400,10 +400,11 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
     gpu_polys_ = &polys;
     gpu_windows_ = windows;
     gpu_mem_ = mem;
-    if (panorama_.original && panorama_.source_valid)
-        panorama_.source_valid = panorama_.matches_live(tile_ram_, char_ram_);
     profile_ = {};
     uint64_t before = ticks();
+    // Preparation includes live-source validation as well as palette/tile decoding.
+    if (panorama_.original && panorama_.source_valid)
+        panorama_.source_valid = panorama_.matches_live(tile_ram_, char_ram_);
     // Retain the reference's sticky palette-dirty behavior. palette_w marks
     // cached composition dirty only if the resulting RGB value really changed.
     if (palette_dirty_) {
@@ -648,6 +649,8 @@ void Video::copy_front_hud_to_edges(std::vector<uint32_t> &out) {
         }
 }
 
+// Forced camera-sweep reference: unlike gameplay, its phase deliberately
+// differs from the live tilemap, so it must replace the centre as well.
 // Original-art sky pair only. Native overlay layers still use draw(), and
 // layer 3 / layer-2 filler rows retain their live pixels. Normal window masks
 // extend their edge selection into the margins; vertical splits keep the
@@ -681,6 +684,55 @@ uint16_t Video::panorama_background_pen(int x, int y) const {
     return 0;
 }
 
+// A side margin extends one native edge's window selection for the whole
+// row. Resolve that selection and scrolling once, then sample cached indices.
+void Video::fill_panorama_margin(uint32_t *dest, int x, int y, int edge) const {
+    const unsigned ctrl = tile(0x5006);
+    const bool split = (ctrl & 0x6000) != 0;
+    for (int layer = 2; layer <= 3; ++layer) {
+        const unsigned v = tile(0x5004 + layer);
+        if (v & 0x8000) continue;
+        int source = layer;
+        if (split) {
+            if (layer == 3) break;
+            const int boundary = int((0u - v) & 511);
+            source = ((0u - v) & 512) ? 2 : 3;
+            if (y >= boundary) source ^= 1;
+        } else {
+            unsigned mask = tile(0x6800 + unsigned(y) * 4 + unsigned(edge >> 7));
+            if (layer & 1) mask = ~mask;
+            if (mask & (0x8000u >> ((edge >> 3) & 15))) continue;
+        }
+        const int sy = (y + int(v)) & 511;
+        const bool original = source == 2 && sy >= Panorama::SourceY &&
+                              sy < Panorama::SourceY + int(panorama_.source_height());
+        const uint16_t *pixels;
+        const uint8_t *flags = nullptr;
+        unsigned scroll, wrap;
+        if (original) {
+            pixels = panorama_.indices.data() + size_t(sy - Panorama::SourceY) * Panorama::Width;
+            scroll = unsigned(panorama_.scroll_x());
+            wrap = Panorama::Width - 1;
+        } else {
+            pixels = pixmap_[source].data() + size_t(sy) * 512;
+            if (split) flags = flags_[source].data() + size_t(sy) * 512;
+            const unsigned h = tile(0x5000 + layer);
+            scroll = (h & 0x8000) ? tile(0x4000 + 0x200 * layer + y) : h;
+            wrap = 511;
+        }
+        const unsigned start = unsigned(x) - scroll;
+        for (int i = 0; i < margin_; ++i) {
+            const unsigned u = (start + unsigned(i)) & wrap;
+            uint16_t pixel = pixels[u];
+            // Split mode rejects category 1 even for the opaque sky pair.
+            if (split && ((pixel & 0x8000) || (flags && (flags[u] & 1)))) pixel = 0;
+            dest[i] = pens_[pixel & 4095];
+        }
+        return;
+    }
+    std::fill_n(dest, margin_, pens_[0]);
+}
+
 // Widescreen side margins, under the 3D layer. On a 2D screen (car and
 // circuit select, titles: see scene()) each row carries its own edge colours
 // out: the art covers only 496 columns. Behind a 3D scene (the race, the
@@ -693,6 +745,16 @@ void Video::fill_margins() {
     const bool scene = this->scene();
     const int out = width();
     if (panorama_active() && panorama_.original) {
+        if (!panorama_.sweep) {
+            // screen_update already composed the exact native centre,
+            // including both overlay layers. Only the side margins need work.
+            for (int y = 0; y < H; ++y) {
+                uint32_t *row = screen_.data() + size_t(y) * size_t(out);
+                fill_panorama_margin(row, -margin_, y, 0);
+                fill_panorama_margin(row + margin_ + W, W, y, W - 1);
+            }
+            return;
+        }
         // Preserve both overlay layers in their original priority and native
         // position, including opaque black pixels; only the sky pair widens.
         panorama_overlay_.assign(size_t(W) * H, 0u);

@@ -141,6 +141,27 @@ Default controls:
 | Coin / start | 5 / Enter | Back / Start |
 | Test / service | F2 / F3 | |
 | Fullscreen / launcher | F11 / Esc | |
+| Performance display: off / FPS / timings | F10 | |
+| Save recent timings and pause (timings mode) | F9 | |
+
+The performance display is off at startup. FPS counts game updates against
+the native 57.52 Hz rate; the detailed text also separates CPU game stages,
+software video stages, upload/render work and swapchain waiting. It keeps the
+last 1,024 window iterations (about 17 seconds at 60 Hz) in memory. Press F9
+soon after a stutter to pause and write `performance.csv` beside `launcher.ini`
+(`%APPDATA%/daytona-recomp/daytona/` on Windows, or `daytona93/` for Deluxe).
+Each save replaces that file; copy it before another capture. Resume starts
+a fresh capture. There is no graph, continuous logging or saved profiler setting.
+
+CSV times are milliseconds; a row may include several catch-up updates.
+`max_update_ms` preserves the slowest individual update; `slow_updates` counts
+updates above 17.38 ms, and `discarded_ms` records time dropped by the existing
+four-update catch-up cap. Video sub-stages are included in `video_ms`, not
+additional costs. Swapchain wait is host waiting, not GPU execution time;
+native audio callbacks are outside the sound timer. `draw_budget=0` means
+Automatic. Settings/polygon counts describe the end of each row. Pauses and
+mode changes clear the buffer. The optional local-ROM `m2perfcheck` target
+replays the same scene for overhead comparisons; see its usage message.
 
 Sound: the sound board's 68000 program is statically recompiled like the
 i960 code and runs on the native board with the YM3438 (ymfm) and both

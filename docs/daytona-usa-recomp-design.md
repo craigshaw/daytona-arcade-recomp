@@ -180,6 +180,19 @@ One frame's output is a flat list: polygon (4 verts, screen xyz, uv, colour, tex
 - Sorting: reproduce the hardware's priority/z-sort order first; a z-buffer mode is an enhancement toggle, since hardware ordering artefacts are part of the look.
 - Tilemaps (HUD, speedometer, course map, text) render as a separate layer at native 496x384 and scale with nearest or sharp-bilinear filtering.
 
+Software panorama composition preserves the already composed native centre
+and fills cached artwork into the side margins, resolving layer/window and
+scroll rules per row. The forced camera-sweep diagnostic retains full-width
+composition; replay and palette fixtures compare both paths pixel-for-pixel.
+
+Desktop performance diagnostics are host-only and off at startup: F10 cycles
+FPS and broad stage timings, using the runtime's existing optional clocks.
+A fixed 1,024-row ring and text refreshed four times per second avoid live
+logging and graphs. F9 pauses before exporting CSV. Game updates and present
+submissions are counted separately, including catch-up batches and discarded
+backlog; no GPU fences are added to gameplay. Measure the same input replay
+with diagnostics off/on before accepting their overhead or optimising a stage.
+
 **Enhancements (all off by default)**
 
 With every enhancement off the build is the game as MAME runs it; parity checks run that way. When on, an enhancement may change game logic (rules.md, changed 1 Oct 2026: previously "never change game logic", which ruled out widening the game's own culling).

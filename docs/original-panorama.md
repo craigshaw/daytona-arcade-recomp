@@ -14,8 +14,11 @@ This follows the design document's Renderer and Enhancements sections.
   2048x344 (1.34 MiB), and Expert 2048x432 (1.69 MiB), each on CPU and GPU.
   Course IDs are 0 / 2 / 1 respectively. The CPU cache replaces its previous
   course; the GPU allocation grows only as needed and reuses that capacity.
-  Software composition also keeps a reusable 496x384 overlay buffer
-  (0.73 MiB); the desktop GPU path does not allocate it.
+  Software composition reuses the already drawn native centre and fills
+  only the side margins, resolving window/layer selection and scroll once
+  per side per row. The 496x384 overlay buffer (0.73 MiB) is needed only by
+  the diagnostic forced camera sweep, which must redraw the centre at its
+  artificial phase; normal gameplay and the desktop GPU do not allocate it.
 - Upload the indices on the first supported frame and when the rendered
   course or game instance changes, alongside the existing tile pixmaps.
   The shared tile shader uses the current palette, so fades need
@@ -96,6 +99,12 @@ cross that boundary. Loading checks exclude the earlier attract activation.
 the extension is disabled, for exact software/GPU comparisons. It is a
 capture diagnostic. `--sky-log FILE` records readiness, scroll and palette
 state. Neither option changes guest RAM or gameplay.
+
+The CPU margin optimisation also checks against the original full-width
+scalar compositor: the palette and `m2panoramacheck --play` fixtures enable
+the diagnostic sweep without changing the live phase, then compare every
+pixel. The 6 October replay pass across both revisions totals 11,475 pixel
+comparisons with no mismatches, plus all three courses' palette fade checks.
 
 ## Initial Beginner checks — 4 October 2026
 

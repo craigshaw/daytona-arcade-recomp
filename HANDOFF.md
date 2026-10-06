@@ -2,6 +2,130 @@
 
 ## Current state
 
+**CPU panorama composition optimised (6 Oct 2026).** The software renderer
+retains the already composed native centre and fills only the two margins.
+Layer/window selection, vertical splits and scrolling resolve once per side
+per row; pixel loops sample cached indices with the current palette. Normal
+play no longer draws duplicate overlays or allocates their 0.73 MiB buffer.
+The diagnostic forced sweep retains the full-width scalar path because its
+artificial phase differs from the native tiles. No game logic, budget,
+profiler, hardware shader or user settings changed in this optimisation.
+
+Both Release games build. Four targeted CTests pass. All three courses in
+both revisions pass palette fades/restoration and `m2panoramacheck --play`:
+11,475 replay pixel comparisons, including the GPU, native centre and now
+the original scalar CPU compositor. Loading/fallback states, aspect/renderer
+changes and restarts pass. This extends renderer regression evidence, not
+the project's separate MAME parity claim.
+Manual feedback on the updated build reports no noticeable stutter in
+attract mode or a full Beginner race.
+
+Revision A software benchmark, same `race_to_end.txt` and widescreen NVRAM,
+Default distance, Automatic budget, HUD edges enabled, frames 3001..4024:
+
+| Aspect | Mean fixture frame before -> after | Mean composition before -> after |
+| --- | ---: | ---: |
+| 32:9 (two reverse-order passes) | 16.95 -> 13.98 ms | 3.40 -> 0.49 ms |
+| 16:9 (one pair) | 10.13 -> 8.53 ms | 1.89 -> 0.28 ms |
+| Original (one pair) | 6.68 -> 6.61 ms | 0.19 -> 0.18 ms |
+
+32:9 saves 2.98 ms per fixture frame (~18%); composition falls ~85%, while
+raster remains 10.50/10.49 ms. All 1,024 frame hashes and game/scenery
+observations match the previous build in every comparison. Benchmarks ran
+sequentially after builds/replay checks finished; these offscreen timings
+include a fixture-only completion fence and no audio device/vsync. They
+show more CPU headroom, not that every live stutter is fixed. Compact
+CSV/log/hash evidence and the saved baseline executable are under ignored
+`traces/panorama-performance-20261006/`; no new image captures were retained.
+Next: use live F9 captures to distinguish remaining pauses; software polygon
+rasterisation is the largest measured stage. All test processes have exited.
+
+**32:9 budget/performance comparison (6 Oct 2026).** Extended only the
+excluded `m2perfcheck` fixture with explicit budgets, frame-window selection
+and bounded scenery/pixel observations. The desktop profiler and normal
+settings are unchanged. Replayed Revision A `race_to_end.txt`, the same
+widescreen NVRAM, software 1366x384, Default distance, panorama and HUD edges
+enabled. Measured frames 3001..4024 twice in orders 5000/8000/Automatic and
+Automatic/8000/5000. No game process was detected at the start of each run. File output and
+per-frame pixel hashing occur outside timing; retained results are compact.
+
+| Budget | Mean fixture frame | Mean CPU game | Mean submitted polygons | Frames differing from Automatic |
+| --- | ---: | ---: | ---: | ---: |
+| 5,000 | 17.05 ms | 16.12 ms | 1,614 | 313 / 1,024 |
+| 8,000 | 17.33 ms | 16.35 ms | 1,664 | 0 / 1,024 |
+| Automatic (13,771) | 17.40 ms | 16.42 ms | 1,664 | reference |
+
+Selection hashes match throughout. Repeated runs reproduce all pixel and
+scenery metadata exactly. 5,000 rejects 2,206 lists across 498 frames; peak
+cost is 5,530 because checks are between lists, allowing overshoot. 8,000 and
+Automatic have identical output/counts, zero rejections and peak cost 7,512.
+The prior 9,000-frame scout peaks at 7,517. The measured ~0.35 ms (~2%) saving
+at 5,000 is small and noisy: identical-work 8,000 runs differ by 0.32 ms.
+Geometry averages 0.386/0.420/0.420 ms and raster 10.61/10.76/10.80 ms.
+This window does not activate HUD relocation despite enabling the setting.
+Separate software captures at frame 3300 match the benchmark hashes. The
+5,000 budget removes trees behind the left grandstand: 9,372 RGB pixels
+change (1.79% of the image), within x=0..417, y=43..153. Only this image
+pair is retained as PNG; raw captures are discarded after verification.
+
+Evidence: ignored `traces/budget-performance-20261006/` contains commands'
+inputs/executable hashes, CSVs, logs and analysis. The unused part of the
+Automatic allowance does not create extra work here. Lowering to 5,000
+reduces submitted geometry and changes pictures for a small timing gain;
+keep the existing defaults and prioritise CPU panorama composition. This
+test covers one recorded Revision A sequence, not every scene or Deluxe '93.
+Reproduce each pass with `m2perfcheck build-daytona/rom_cache/daytona
+traces/widescreen-32x9/nvram scripts/inputs/race_to_end.txt 32:9 timings
+OUTPUT_PREFIX --budget N`, using N=5000, 8000 or 0 (Automatic).
+
+**Lean desktop profiling implemented (6 Oct 2026).** F10 cycles Off -> FPS ->
+Timings; F9 in Timings pauses and replaces `performance.csv` in the active
+profile's settings folder. Text only, no graph, settings or continuous I/O.
+Existing optional runtime clocks feed a 1,024-row ring (197,416 bytes including
+cached text); summaries refresh four times/second. Rows distinguish game
+updates from present submissions, retain the slowest update in catch-up
+batches, and record discarded backlog. Pauses/resume/mode changes clear the
+ring. Off adds no clock reads; FPS leaves stage clocks disabled. No pacing,
+budget, renderer or audio behaviour was changed. Video preparation now includes
+panorama source validation; skipped board draws clear stale video measurements.
+
+Release builds for both revisions and targeted CTests pass.
+`m2perfcheck` is an excluded local-ROM fixture using the app's overlay, software
+upload and an offscreen GPU completion fence (no vsync/audio device). On this
+i9-12900HK / D3D12 machine, `race_to_end.txt` with the existing widescreen NVRAM,
+Default distance, Automatic budget and frames 3001..4024 gives these mean costs:
+
+| Aspect | Whole fixture frame | CPU game | Raster | Composition |
+| --- | ---: | ---: | ---: | ---: |
+| Original | 6.58 ms | 5.97 ms | 4.01 ms | 0.17 ms |
+| 16:9 | 10.35 ms | 9.52 ms | 5.53 ms | 1.92 ms |
+| 32:9 | 17.16 ms | 16.16 ms | 10.57 ms | 3.43 ms |
+| 32:9, panorama disabled control | 14.00 ms | 13.02 ms | 10.59 ms | 0.33 ms |
+
+Off/on/on/off 32:9 runs average 17.105/17.161 ms, a 0.056 ms difference;
+the off runs themselves differ by 0.51 ms, so this is not a precise overhead
+guarantee. Overlay CPU work averages 0.050 ms. All four sampled pixel hashes
+match. Panorama preparation is only 0.034 ms: per-frame composition, not asset
+loading/validation, accounts for the roughly 3.1 ms panorama cost here. Raster
+remains largest. A HUD-off control had identical sampled pixels and cannot
+rule out costs when HUD relocation is active. Every-third-frame drawing passes
+the skipped-timing assertion; it is a diagnostic control, not a proposed fix.
+
+Isolated `performance-20261006` desktop profiles verify startup Off, FPS,
+Timings and CSV in both revisions; Deluxe also verifies Resume excludes the
+pause and F10 returns to Off. Live rows include zero-update presents and
+four-update catch-up batches. A resume assertion initially assumed every row
+advanced the game; corrected to allow a valid zero-update first row. The
+initial export notice was obscured by the launcher; it now draws above it
+without taking focus. Normal user profiles are untouched; test windows closed.
+Compact CSV/log/hash evidence is under ignored `traces/performance/`.
+
+The subsequent panorama optimisation and results are recorded above.
+These profiling measurements are warm replay
+measurements, not proof of the cause of every user-visible pause, a GPU timing
+claim, or a new MAME-parity claim. The profiling milestone itself did not
+change rendering.
+
 **Automatic playable panoramas implemented (6 Oct 2026).** Selecting any
 widescreen ratio in the desktop launcher now enables the complete original
 course background in both ROM revisions. There is no separate panorama

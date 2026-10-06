@@ -95,6 +95,10 @@ int main(int argc, char **argv) {
                 video.set_external_3d(false);
                 video.screen_update(polys, windows, mem);
                 require(hardware == video.screen(), "palette fixture CPU/GPU mismatch");
+                video.panorama().sweep = true; // same phase, original scalar compositor
+                video.screen_update(polys, windows, mem);
+                require(hardware == video.screen(), "faded margin/scalar panorama mismatch");
+                video.panorama().sweep = false;
                 video.panorama().original = false;
                 video.screen_update(polys, windows, mem);
                 for (int y = 0; y < H; ++y)

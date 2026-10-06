@@ -138,6 +138,7 @@ public:
 
     using ProfileClock = uint64_t (*)();
     void set_profile_clock(ProfileClock clock) { profile_clock_ = clock; }
+    void reset_profile() { profile_ = {}; } // a skipped board frame did no video work
     const VideoProfile &last_profile() const { return profile_; }
     static constexpr int W = 496, H = 384;
 
@@ -200,8 +201,9 @@ private:
     bool scene() const { return gpu_windows_ <= 1 && coverage_ >= 15; }
     bool stretch_backdrop_ = false;
     Panorama panorama_;
-    std::vector<uint32_t> panorama_overlay_;
+    std::vector<uint32_t> panorama_overlay_; // capture-only forced camera sweep
     void fill_margins();
+    void fill_panorama_margin(uint32_t *dest, int x, int y, int edge) const;
     uint16_t panorama_background_pen(int x, int y) const;
     bool hud_edges_ = false;
     bool hud_on_ = false;                      // the rasterizer is moving the HUD overlay polygons
