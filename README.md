@@ -99,8 +99,10 @@ opens first:
   (off by default): widescreen 16:10, 16:9, 21:9 or 32:9, which shows more of the
   scene at the sides with the HUD kept 4:3 in the centre, or with "HUD at
   the screen edges" (experimental) the lap times, position, condition panel and course map
-  moved out to the sides (in a race the sky at the sides is plain blue, or
-  with "Stretch tile background" the game's sky picture stretched across);
+  moved out to the sides. Widescreen automatically reveals more of each
+  course's original panoramic background at its native scale, in both ROM
+  revisions; there is no separate background setting. Menus and loading
+  retain the existing rendering until the course background is ready;
   a draw distance slider for scenery range (shorter runs faster); and a
   polygon budget setting. Widescreen includes additional scenery beside
   the view. **Automatic** scales the allowance with aspect ratio and keeps
@@ -109,10 +111,9 @@ opens first:
   Resolution and supersampling do not change the budget. Original view
   with Default distance and Automatic budget retains the game's 5,000.
   See [widescreen validation](docs/widescreen-validation.md) for measurements
-  and the remaining background/road limitations. Start.
-  An [original panorama experiment](docs/original-panorama.md) is available
-  through the capture tools for all three courses in Revision A and Deluxe '93; it is not yet a launcher
-  setting.
+  and the remaining road limitations, and [original panoramas](docs/original-panorama.md)
+  for background details. Choose Start to play. Old `stretch_backdrop` settings
+  are ignored and removed when settings are next saved.
 - **Controls**: bind every arcade control to a key, a gamepad button or
   axis, and a wheel or joystick input (experimental; click, then press). Triggers, sticks,
   wheels and pedals are analogue. Wheels, pedals and shifters work as

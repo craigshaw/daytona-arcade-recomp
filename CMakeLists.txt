@@ -232,7 +232,8 @@ if(EXISTS ${GEN_DIR}/gen_table.cpp AND EXISTS ${TGP_GEN} AND EXISTS ${SND_GEN})
         add_executable(m2gpushot tools/m2gpushot/main.cpp ${GEN_SOURCES} ${TGP_GEN} ${SND_GEN})
         target_link_libraries(m2gpushot PRIVATE runtime gpurender)
         # Explicit local-ROM integration check; not part of ordinary builds.
-        add_executable(m2panoramacheck EXCLUDE_FROM_ALL tests/panorama_palette.cpp ${GEN_SOURCES} ${TGP_GEN} ${SND_GEN})
+        add_executable(m2panoramacheck EXCLUDE_FROM_ALL tests/panorama_palette.cpp tests/panorama_play.cpp
+            src/app/config.cpp src/app/controls.cpp ${GEN_SOURCES} ${TGP_GEN} ${SND_GEN})
         target_link_libraries(m2panoramacheck PRIVATE runtime gpurender)
     else()
         message(STATUS "extern/sdl3 not found: skipping the windowed game (run scripts/setup.py)")

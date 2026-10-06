@@ -1,8 +1,10 @@
 # Original panorama milestone
 
-All three courses in Revision A and Deluxe '93, opt-in capture tools. The complete original
+All three courses in Revision A and Deluxe '93, automatic with widescreen in
+the playable game. The complete original
 sky is decoded from the user's imported ROM; no extracted PNG or replacement
-artwork is required. The normal launcher and default rendering are unchanged.
+artwork is required. Original aspect remains the default and retains the
+original rendering. Capture tools keep their explicit opt-in for comparisons.
 This follows the design document's Renderer and Enhancements sections.
 
 ## Rendering
@@ -25,8 +27,9 @@ This follows the design document's Renderer and Enhancements sections.
   revision-specific course descriptor, supported scroll state, visible streamed map columns
   and original character data. Loading or stale source states fall back.
 - Original view, the unverified fourth source and unsupported states retain the existing
-  renderer. In a supported scene this mode takes precedence over stretching;
-  elsewhere the selected legacy background mode remains in force.
+  renderer. The playable game selects the panorama from the aspect ratio,
+  with no separate background setting. Diagnostic tools still allow stretching;
+  original panoramas take precedence in supported scenes.
 
 The first replay exposed a loading transition at frame 2580: the course
 selector was ready before the sky tiles/palette. Checking the selector alone
@@ -35,12 +38,23 @@ there is no frame-number delay or palette-colour heuristic.
 
 ## Try and reproduce
 
+Build and launch the playable game, choose a widescreen aspect in
+**Game > Enhancements**, then Start or Resume. All four widescreen choices
+use panoramas automatically. No extra flag or build option is needed:
+
+```powershell
+cmake --build build-daytona --config Release --target daytona --parallel 4
+build-daytona/Release/daytona.exe --rom roms/daytona.zip
+```
+
+For the existing Deluxe '93 build, use `build-daytona93` instead. Its importer
+can use this checkout's complete merged `daytona.zip`, as described below.
+
 Both capture tools accept `--panorama-original`; `--panorama-proof` remains
 the separate temporary test image, and the two options cannot be combined.
-There is no build-time switch. This option is not yet exposed by `daytona.exe`
-or the launcher, so the commands below produce a screenshot, not a playable
-window. They use this checkout's existing Revision A build and saved cabinet
-settings. Run from the repository root:
+The capture commands below retain the explicit option to compare with the
+legacy renderer. They use this checkout's existing Revision A build and
+saved cabinet settings. Run from the repository root:
 
 ```powershell
 cmake --build build-daytona --config Release --target m2gpushot --parallel 4
@@ -217,6 +231,40 @@ python scripts/original_panorama_validate.py --set daytona93 --course advanced -
 python scripts/original_panorama_validate.py --set daytona93 --course expert --nvram traces/widescreen-32x9/nvram --output traces/daytona93-repeat/expert
 ```
 
-Remaining scope: live launcher switching and runtime testing on
-other GPU backends. The fourth ROM source remains unverified. Shared
-SPIR-V, DXIL and MSL shaders are regenerated from the same HLSL source.
+## Automatic playable backgrounds — 6 October 2026
+
+The desktop app applies one video policy before advancing a frame. A wider
+viewport enables the original panorama; returning to original aspect disables
+it while retaining the cache for reuse. Native startup allocates no panorama
+artwork. Scene/source readiness still controls when the panorama is actually
+drawn, including during loading and attract transitions. The stretch checkbox
+and saved field are retired: either old value is ignored, other preferences
+survive, and the obsolete key disappears on the next save. Capture switches
+and their defaults are unchanged.
+
+`m2panoramacheck --play` uses the app's actual settings function and an explicit
+panorama control game with uninterrupted scroll tracking. Each revision runs
+all three course replays for 18,000 frames, then restarts each for 3,600 frames
+with the same GPU renderer. Both pass 4,842 pixel comparisons: automatic vs
+explicit software backgrounds, CPU vs GPU backgrounds, and unchanged original
+centres. The sequence covers all four widescreen ratios, native intervals,
+software/hardware changes and frame-skip modes. All 64,800 frames per revision
+match the control's readiness; each run performs ten necessary uploads across
+courses and game instances, without re-uploading on aspect changes. Five
+targeted CTests across the builds pass, including old-settings migration.
+
+Desktop smoke checks in separate profiles confirm the updated launcher,
+32:9 startup, original-aspect Resume, 16:9 Reset and legacy-key removal on save
+in Revision A, plus saved 32:9 autostart in Deluxe '93. Normal profiles were
+not changed. Full-race pixel comparisons come from the fixture above.
+
+```powershell
+cmake --build build-daytona --config Release --target daytona m2panoramacheck test_app_config --parallel 4
+build-daytona/Release/m2panoramacheck.exe build-daytona/rom_cache/daytona traces/widescreen-32x9/nvram --play scripts/inputs/race_to_end.txt scripts/inputs/widescreen_advanced.txt scripts/inputs/widescreen_expert.txt
+```
+
+Use `build-daytona93` and `rom_cache/daytona93` for the other revision. Pixels
+stay in memory; compact local logs are under `traces/automatic-panorama/`.
+No runtime or shader changes were needed. These are Direct3D 12 integration
+checks, not a new MAME-parity claim. Other GPU backends and the fourth ROM
+source remain unverified.

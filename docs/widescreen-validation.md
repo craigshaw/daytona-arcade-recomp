@@ -432,12 +432,11 @@ in `benchmarks.json`.
 
 ### Remaining coverage and work
 
-Deluxe '93 original-view regression and widescreen smoke checks are
-explicitly deferred until the user has that ROM set. New cost-observer
-addresses must also be established for that revision before using its
-diagnostic values. Other GPU backends, extended play through every course
-section, live launcher switching and optional HUD/background combinations
-need further coverage. This is replay validation, not a new MAME parity
-claim. Sky/background boundaries remain visible, especially at 32:9;
-background presentation, HUD redesign and the separate road window remain
-outside this milestone.
+The later [original panorama milestones](original-panorama.md) cover both
+ROM revisions, original-view controls, course/loading/wrap transitions and
+automatic backgrounds in the playable game, including aspect and renderer
+changes. They do not extend this Revision A scenery-budget comparison to
+Deluxe '93; its cost-observer addresses still need establishing before using
+those diagnostic values. Other GPU backends, extended play through every
+course section, HUD presentation and the separate road window need further
+work. These are replay/integration checks, not a new MAME-parity claim.

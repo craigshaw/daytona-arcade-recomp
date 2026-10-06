@@ -2,6 +2,40 @@
 
 ## Current state
 
+**Automatic playable panoramas implemented (6 Oct 2026).** Selecting any
+widescreen ratio in the desktop launcher now enables the complete original
+course background in both ROM revisions. There is no separate panorama
+setting. The stretch checkbox and config field are removed; old keys are
+ignored and omitted on the next save without changing other preferences.
+Original aspect remains the default, allocates no panorama on startup and
+uses the original renderer. Loading/unsupported states retain the existing
+fallback. Capture tools keep their explicit switches and defaults.
+
+The app and `m2panoramacheck --play` share `app/video_settings.h`. Paired
+automatic/explicit replays retain an uninterrupted reference scroll observer
+to catch stale phase on re-enabling widescreen. Both revisions pass 4,842
+pixel comparisons each, across all courses and four widescreen ratios,
+native intervals, software/hardware switches and frame-skip modes. Each set
+runs 64,800 frames (three 18,000-frame replays plus three 3,600-frame restarts)
+with matching readiness throughout and ten required uploads on a shared GPU
+renderer. Aspect changes reuse the cache. Original centres and CPU/GPU skies
+match exactly. No runtime, shader or artwork change was needed. Both Release
+game builds and five targeted CTests pass, including legacy config migration.
+These are Direct3D 12 checks, not a new MAME-parity claim.
+
+Separate `panorama-auto-20261006` desktop profiles verify the removed checkbox,
+32:9 startup, original-aspect Resume, 16:9 Reset and legacy-key removal on save
+in Revision A, plus saved 32:9 autostart in Deluxe '93. Both test windows are
+closed; normal user profiles were not changed.
+
+Compact logs and executable/input/cabinet hashes are under ignored
+`traces/automatic-panorama/`; the fixture retains no raw images or frame logs.
+Procedure: `docs/original-panorama.md`. The earlier proposed background
+selector was unnecessary: choosing widescreen is the enhancement opt-in.
+Next: normal 32:9 driving feedback to prioritise road coverage and HUD
+presentation, plus runtime verification on other GPU backends. This milestone
+is recorded on `widescreen-32x9`.
+
 **Deluxe '93 original panoramas implemented and validated (5 Oct 2026).**
 `--panorama-original` now supports all three courses in both revisions,
 through the capture tools. All 24 panorama map sections and their character

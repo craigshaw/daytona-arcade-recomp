@@ -187,7 +187,7 @@ With every enhancement off the build is the game as MAME runs it; parity checks 
 | Option | Approach | Risk |
 | --- | --- | --- |
 | Internal resolution | Render 3D at N× or window size | Low |
-| Widescreen | **Implemented** (launcher: 16:10, 16:9, 21:9, 32:9). Same focal length, viewport widened: the geometrizer's side clip planes and the rasterizer's clip move out by a margin for full-width viewports, the 3D layer is drawn margin-shifted into a wider buffer, tilemaps (HUD, text) stay 496 wide in the centre, and the side margins use plain sky in 3D scenes, optionally stretching the original backdrop across the width, or each row's edge colours on 2D screens. Option "HUD at the screen edges": the race HUD's side groups move out by the margin, decided per item (front-layer pixels grouped into blobs; a blob moves only if wholly inside a group, so banners crossing a group stay whole), plus the condition panel's own overlay quads (the polygons at its box's sort z inside its outline), only while that box is on screen. Wider views also extend scenery selection and scale its budget, as detailed below | Revision A course/camera replays validated; sky boundaries, HUD presentation and road coverage remain separate work. Deluxe '93 smoke remains unverified |
+| Widescreen | **Implemented** (launcher: 16:10, 16:9, 21:9, 32:9). Same focal length, viewport widened: the geometrizer's side clip planes and the rasterizer's clip move out by a margin for full-width viewports, the 3D layer is drawn margin-shifted into a wider buffer, and tilemaps (HUD, text) stay 496 wide in the centre. The playable game automatically uses each course's complete original panorama in both revisions. Loading and unsupported states retain plain-sky or 2D edge-fill rendering. Option "HUD at the screen edges": the race HUD's side groups move out by the margin, decided per item (front-layer pixels grouped into blobs; a blob moves only if wholly inside a group, so banners crossing a group stay whole), plus the condition panel's own overlay quads (the polygons at its box's sort z inside its outline), only while that box is on screen. Wider views also extend scenery selection and scale its budget, as detailed below | Panorama course/loading/wrap replays and live aspect changes validated in both revisions on Direct3D 12. Road coverage and HUD presentation remain separate work |
 | Draw distance | **Scenery implemented** (launcher slider: Shortest, Shorter, Default, Further, Furthest; `m2run --draw-distance`). Measured: the geometrizer's master z clip is unused (0xff). The game draws scenery by course cell: a 16x16 grid, the 5x5 cells around the car's filtered by two visibility masks into a list (Deluxe '93: 0x16f74..0x17070; count 0x5016c0, cells from 0x5016c1, room for 63), then object lists until a per-frame polygon budget (0x5010f4, 5000, set at boot) is exceeded. A recompiler hook (`m2recomp --hooks`, `seeds/daytona93_hooks.txt`) at 0x17078 rewrites the list: shorter keeps the car's cell or one ring; further lists the whole 5x5 or 7x7. Automatic uses the higher of the aspect allowance and the existing distance allowance (10000, 15000); Custom overrides both. The road is a separate 14-section window (0x13f5c: 5 behind, 8 ahead) that game logic also uses; not changed | Further adds scenery but not road; the road window is shared with game logic |
 | Texture filtering | Bilinear/anisotropic on atlases | Low; atlas padding needed |
 | High frame rate | Interpolate display lists between frames | High; logic stays at native rate |
@@ -222,7 +222,8 @@ four cameras, five ratios and both renderers: 660 sampled Automatic/50,000
 comparisons and 1,438 consecutive comparisons around budget rejections
 match exactly. Ninety native-view captures match the previous executable
 byte-for-byte. This supports the defaults in those replays, not every
-possible frame. Deluxe '93 awaits its supplied ROM. See
+possible frame. This scenery-budget matrix covers Revision A; the later
+Deluxe '93 panorama checks below do not extend that budget comparison. See
 [widescreen validation](widescreen-validation.md) for the reproducible
 capture procedure, measurements and remaining limits.
 
@@ -255,7 +256,15 @@ as needed (largest sky 1.69 MiB). Course and game-instance identity control
 uploads. Original view and unsupported states retain the existing renderer.
 Deluxe '93 uses the same source maps and character data with different phase,
 selector and descriptor addresses, selected through `panorama_revision.h`.
-The launcher remains unchanged pending integration into the playable game.
+**Automatic playable integration (6 Oct 2026):** widescreen now selects these
+panoramas implicitly through the app's shared video-settings function. Native
+view remains the default, disables panorama rendering and allocates no artwork
+on startup. Cached artwork survives aspect changes. The stretch checkbox and
+saved setting are retired; old values are ignored and dropped on the next save.
+Diagnostic tools retain their explicit panorama/stretch controls. Both revisions
+pass 4,842 integration pixel comparisons each across all courses, all widescreen
+ratios, native intervals, renderer changes and game restarts on one GPU renderer.
+The runtime and shared shaders are unchanged.
 See [original panorama](original-panorama.md) for reproduction and limits.
 
 ## Audio, inputs, force feedback, link play

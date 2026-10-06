@@ -20,6 +20,7 @@
 #include "app/gpu/gpu_renderer.h"
 #include "app/launcher.h"
 #include "app/native_audio.h"
+#include "app/video_settings.h"
 #include "runtime/native_sound_engine.h"
 #include "runtime/game_loop.h"
 #include "runtime/rom_import.h"
@@ -389,13 +390,7 @@ int main(int argc, char **argv) {
         pending = std::min(pending + double(now - last), frame_ns * 4);
         last = now;
         if (game && !in_launcher) {
-            game->set_aspect(cfg.aspect_ratio()); // widescreen: no-op unless it changed
-            game->set_hud_edges(cfg.hud_edges);
-            game->set_frame_skip(cfg.draw_mode);
-            game->board().video().set_external_3d(cfg.renderer == "hardware" && gpu.ok(), true);
-            game->set_stretch_backdrop(cfg.stretch_backdrop);
-            rt::GameLoop::set_draw_distance(cfg.draw_distance);
-            game->set_draw_budget(cfg.draw_budget);
+            app::apply_video_settings(*game, cfg, gpu.ok());
             while (pending >= frame_ns) {
                 game->run_frame(cfg.controls.sample(SDL_GetKeyboardState(nullptr), devices));
                 if (native_active) {

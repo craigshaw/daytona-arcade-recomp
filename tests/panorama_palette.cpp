@@ -10,9 +10,13 @@
 #include <cstring>
 #include <stdexcept>
 
+void check_play_panorama(SDL_GPUDevice *, app::GpuRenderer &, SDL_GPUTexture *, SDL_GPUTransferBuffer *,
+                         const char *, const char *, int, char **);
+
 int main(int argc, char **argv) {
-    if (argc < 4) {
-        std::fprintf(stderr, "usage: m2panoramacheck IMAGES_DIR NVRAM_DIR INPUTS [INPUTS ...]\n");
+    const bool play = argc > 3 && std::strcmp(argv[3], "--play") == 0;
+    if (argc < (play ? 5 : 4)) {
+        std::fprintf(stderr, "usage: m2panoramacheck IMAGES_DIR NVRAM_DIR [--play] INPUTS [INPUTS ...]\n");
         return 2;
     }
     auto require = [](bool ok, const char *message) { if (!ok) throw std::runtime_error(message); };
@@ -39,7 +43,8 @@ int main(int argc, char **argv) {
         bi.size = W * H * 4;
         download = SDL_CreateGPUTransferBuffer(device, &bi);
         require(target && download, SDL_GetError());
-        for (unsigned instance = 0; instance < unsigned(argc - 3) * 2; ++instance) {
+        if (play) check_play_panorama(device, gpu, target, download, argv[1], argv[2], argc - 4, argv + 4);
+        else for (unsigned instance = 0; instance < unsigned(argc - 3) * 2; ++instance) {
             tools::Script script;
             script.load(argv[3 + instance / 2]);
             rt::GameLoop game(argv[1]);
@@ -105,9 +110,9 @@ int main(int argc, char **argv) {
             std::printf("instance %u, course %u, height %u: four palette stages match CPU/GPU and legacy centre; one upload\n",
                         instance + 1, unsigned(video.panorama().cached_course), video.panorama().source_height());
         }
-        std::puts("PASS: fade to black/restoration, palette cache reuse and new game instance");
+        if (!play) std::puts("PASS: fade to black/restoration, palette cache reuse and new game instance");
     } catch (const std::exception &error) {
-        std::fprintf(stderr, "panorama palette check: %s\n", error.what());
+        std::fprintf(stderr, "panorama check: %s\n", error.what());
         status = 1;
     }
     gpu.shutdown();
