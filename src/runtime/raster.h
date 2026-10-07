@@ -15,6 +15,7 @@
 #pragma once
 
 #include "runtime/geo.h"
+#include "runtime/hud.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -57,21 +58,8 @@ public:
     // whose viewport spans the 496-pixel screen may then draw `margin` pixels
     // beyond either side. The layer grows to hold the wider screen.
     void set_wide_margin(int margin);
-    // Widescreen, HUD at the edges. The race HUD's condition panel is drawn
-    // with overlay polygons: its box, one checker-shaded polygon (texheader
-    // 0x8000) at a fixed near sort z (0x0600; scenery there is above 18000),
-    // about 77x82 pixels at x 385..462, y 67..149 (496-wide coordinates), and
-    // the car icon inside it at the same z. find_race_hud looks for the box
-    // and remembers its outline and z; with a shift set, only polygons at
-    // exactly that z lying inside that outline move: the overlay's own quads,
-    // never the 3D scene around them. No box: the race HUD is not on screen.
-    static constexpr uint16_t kHudOverlayZ = 0x0fff;
-    bool find_race_hud(const std::vector<GeoPoly> &polys, int crtc_x, int crtc_y);
-    void set_hud_shift(int dx) { hud_dx_ = dx; }
-    // The box find_race_hud found (x0, x1, y0, y1 in 496-wide coordinates)
-    // and its sort z, for the hardware renderer's copy of the move.
-    const float *hud_box() const { return hud_box_; }
-    uint16_t hud_z() const { return hud_z_; }
+    RaceHud &hud() { return hud_; }
+    const RaceHud &hud() const { return hud_; }
     // Widescreen with the hardware renderer, which leaves no CPU 3D layer to
     // count: roughly how much of the original 496x384 screen the polygons
     // cover, in percent, from a coarse rasterization (8x8-pixel cells).
@@ -82,9 +70,7 @@ public:
 
 private:
     int stride_ = 512, margin_ = 0;
-    int hud_dx_ = 0;                           // HUD overlay move (0 = none)
-    float hud_box_[4] = {0, 0, 0, 0};          // the condition box: x0, x1, y0, y1 (496-wide)
-    uint16_t hud_z_ = 0;
+    RaceHud hud_;
     std::vector<uint32_t> dest_;
     std::vector<uint8_t> fill_;
     uint8_t gamma_[256];

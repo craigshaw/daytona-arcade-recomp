@@ -2,6 +2,75 @@
 
 ## Current state
 
+**Live stutter captured (7 Oct 2026, 20:55:53 BST).** Revision A, 32:9,
+software, first attract race: 1,003 updates over 17.43 s average 57.53 Hz,
+but 55 updates exceed 17.38 ms. At frame 960 a three-update catch-up batch
+takes 60.00 ms, including 53.00 ms of CPU rasterisation; composition is only
+0.45 ms/update there. No backlog is discarded. The worst single update is
+24.76 ms (21.76 ms raster). More polygons can render faster in nearby views,
+so count alone does not explain this workload. Preserved CSV:
+`traces/performance-captures/20261007-205553-daytona.csv`, SHA256
+`596088b120982da9f64949af4ea9f491b0bdc50c1f168c250bb11b421209c777`.
+Suggested next experiment: reproduce the attract section, render only the
+last update in a catch-up batch while preserving every simulation/audio
+step, then measure remaining raster cost. This is not implemented yet.
+
+**HUD edge placement repaired (7 Oct 2026).** The existing launcher toggle
+now recognises Revision A's lower traffic panel as well as Deluxe '93's.
+One host-side `RaceHud` rule serves both renderers: the panel and its cars
+move together, and the complete polygon course map (including markers and
+Revision A Expert's leftmost section) moves to the right. Lap/position tile
+groups retain the existing connected-component protection for banners;
+timer and speedometer remain centred. Native aspect and disabled HUD edges
+retain the original placement. No new settings, guest hooks or shader path.
+
+Placement refreshes before either renderer on every screen update. Disabling
+the option or changing width clears it and invalidates cached geometry.
+Hardware-to-software switches therefore cannot retain a zero CPU offset
+while the shared detection flag stays true.
+
+Evidence: both Release builds and five focused CTests pass. The local-ROM
+fixture (`m2panoramacheck IMAGES NVRAM --hud CAPTURE_DIR_OR_DASH INPUTS...`)
+runs 18,000 frames per course, three courses in each revision, with all four
+camera inputs. 2,250 sampled aspect states cover native, 16:9 and 32:9,
+CPU/GPU toggles, renderer switches, race entry/exit and restored layouts.
+Pixels outside the old/new HUD footprints remain unchanged on each renderer;
+every tiny-depth course-map polygon is checked for relocation on every
+active frame. These are host-renderer regression checks, not new MAME parity
+claims or a substitute for a live driving check. Small PNG comparisons and
+logs are under ignored `traces/hud-investigation-20261006/`.
+
+Revision A, software 32:9, Automatic budget and original panorama,
+`race_to_end.txt` frames 3001..4024, sequential off/on/on/off passes:
+
+| Mean fixture time | Edges off | Edges on |
+| --- | ---: | ---: |
+| Frame | 14.38 ms | 15.30 ms |
+| Composition | 0.51 ms | 1.21 ms |
+| Raster | 10.73 ms | 10.90 ms |
+
+Working edge placement adds about 0.92 ms (~6.4%) here, with relocation
+confirmed on all 2,048 measured enabled frames. The tile grouping remains
+unchanged for this milestone; its composition cost is about 0.70 ms. Runs
+vary with host load, so these are estimates, not a guaranteed live FPS.
+Offscreen fixture only: completion fence, no vsync or audio device. Both
+repeat pairs reproduce every pixel hash and game/scenery observation;
+enabling relocation changes no guest/scenery metadata. All 1,024 disabled
+frame hashes and metadata exactly match the saved pre-fix benchmark.
+Raw screenshots were converted to small PNGs and removed. Next: live
+driving feedback on edge placement; no further grouping optimisation is
+included without a demonstrated need.
+
+Do not re-propose widening only the old detection rectangle: the two panels
+have distinct known outlines (Revision A y=84.2..165.9; '93 y=67.4..149.1).
+The course map is polygon geometry at tiny flat positive depth in sort
+bucket zero, not just tilemap pixels; its Expert outline reaches x=342 in
+Revision A, outside the old right-hand tile group. Sort depth alone used to
+move bodywork. The new map rule also requires flat depth, solid material and
+the map region, and remains gated by the recognised panel. Earlier Revision A
+panorama benchmarks enabled the HUD option but did not activate relocation;
+they cannot establish the cost of working edge placement.
+
 **CPU panorama composition optimised (6 Oct 2026).** The software renderer
 retains the already composed native centre and fills only the two margins.
 Layer/window selection, vertical splits and scrolling resolve once per side

@@ -420,6 +420,10 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         ++system24_texture_generation_;
         system24_source_dirty_ = false;
     }
+    // Refresh one placement for both renderers, including when switching from
+    // hardware to software while the race HUD remains continuously visible.
+    if (raster_.hud().update(hud_edges_, margin_, polys, crtc_x_, crtc_y_)) render_done_ = false;
+    hud_on_ = raster_.hud().active();
     profile_.tile_cache = ticks() - before;
 #ifndef M2_VITA_RENDER_OPT
     if (external_3d_ && desktop_) {
@@ -430,12 +434,11 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         // coverage, estimated from the polygons: no CPU 3D layer here) and
         // whether the HUD moves to the edges, which it does itself (the
         // front layers drawn here; the condition panel's polygons move on
-        // the GPU, gpu_hud_shift).
+        // the GPU, using the same RaceHud placement).
         rendered_now_ = false;
         for (uint32_t i = 0; i < kGpuTileWords; ++i) gpu_tile_words_[i] = tile(kGpuTileFirst + i);
         std::copy_n(pens_, kGpuPens, gpu_pens_.data());
         if (margin_) coverage_ = polys.empty() ? 0 : raster_.coverage_estimate(polys, windows, crtc_x_ + margin_, crtc_y_);
-        hud_on_ = margin_ && hud_edges_ && raster_.find_race_hud(polys, crtc_x_ + margin_, crtc_y_);
         if (hud_on_) {
             before = ticks();
             std::fill(sys24_.begin(), sys24_.end(), 0u);
@@ -522,9 +525,6 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         std::fill(sys24_.begin(), sys24_.end(), 0u);
         for (int layer = 3; layer >= 0; --layer) draw(sys24_, (layer << 1) | 1, 0);
         profile_.tile_draw += ticks() - before;
-        // Only while the race HUD is on screen (its condition panel's box).
-        const bool race_hud = raster_.find_race_hud(polys, crtc_x_ + margin_, crtc_y_);
-        if (race_hud != hud_on_) { hud_on_ = race_hud; set_raster_hud_moves(); render_done_ = false; }
     }
     if (!render_done_ && !polys.empty()) {
         before = ticks();
@@ -585,11 +585,6 @@ constexpr HudGroup kHudGroups[2] = {{0, 125, 0, 130, -1},   // lap, lap times
                                     {352, 496, 0, 300, 1}}; // position ("40TH" reaches x 367), condition, course map
 constexpr int kHudJoin = 4;
 } // namespace
-
-void Video::set_raster_hud_moves() {
-    // The condition panel's overlay quads go with the right-hand group.
-    raster_.set_hud_shift(hud_on_ ? kHudGroups[1].side * margin_ : 0);
-}
 
 void Video::copy_front_hud_to_edges(std::vector<uint32_t> &out) {
     const size_t n = size_t(W) * H;
@@ -813,7 +808,8 @@ void Video::set_wide_margin(int margin) {
     margin = std::max(margin, 0);
     if (margin == margin_) return;
     margin_ = margin;
-    set_raster_hud_moves();
+    hud_on_ = false;
+    raster_.hud().clear();
     screen_.assign(size_t(width()) * H, 0u);
     raster_.set_wide_margin(margin_);
     render_done_ = false; // redraw the 3D layer at the new width

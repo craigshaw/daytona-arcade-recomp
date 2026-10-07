@@ -12,11 +12,14 @@
 
 void check_play_panorama(SDL_GPUDevice *, app::GpuRenderer &, SDL_GPUTexture *, SDL_GPUTransferBuffer *,
                          const char *, const char *, int, char **);
+void check_play_hud(SDL_GPUDevice *, app::GpuRenderer &, SDL_GPUTexture *, SDL_GPUTransferBuffer *,
+                    const char *, const char *, const char *, int, char **);
 
 int main(int argc, char **argv) {
     const bool play = argc > 3 && std::strcmp(argv[3], "--play") == 0;
-    if (argc < (play ? 5 : 4)) {
-        std::fprintf(stderr, "usage: m2panoramacheck IMAGES_DIR NVRAM_DIR [--play] INPUTS [INPUTS ...]\n");
+    const bool hud = argc > 3 && std::strcmp(argv[3], "--hud") == 0;
+    if (argc < (hud ? 6 : play ? 5 : 4)) {
+        std::fprintf(stderr, "usage: m2panoramacheck IMAGES_DIR NVRAM_DIR [--play | --hud CAPTURE_DIR_OR_DASH] INPUTS [INPUTS ...]\n");
         return 2;
     }
     auto require = [](bool ok, const char *message) { if (!ok) throw std::runtime_error(message); };
@@ -43,7 +46,8 @@ int main(int argc, char **argv) {
         bi.size = W * H * 4;
         download = SDL_CreateGPUTransferBuffer(device, &bi);
         require(target && download, SDL_GetError());
-        if (play) check_play_panorama(device, gpu, target, download, argv[1], argv[2], argc - 4, argv + 4);
+        if (hud) check_play_hud(device, gpu, target, download, argv[1], argv[2], argv[4], argc - 5, argv + 5);
+        else if (play) check_play_panorama(device, gpu, target, download, argv[1], argv[2], argc - 4, argv + 4);
         else for (unsigned instance = 0; instance < unsigned(argc - 3) * 2; ++instance) {
             tools::Script script;
             script.load(argv[3 + instance / 2]);
@@ -114,7 +118,7 @@ int main(int argc, char **argv) {
             std::printf("instance %u, course %u, height %u: four palette stages match CPU/GPU and legacy centre; one upload\n",
                         instance + 1, unsigned(video.panorama().cached_course), video.panorama().source_height());
         }
-        if (!play) std::puts("PASS: fade to black/restoration, palette cache reuse and new game instance");
+        if (!play && !hud) std::puts("PASS: fade to black/restoration, palette cache reuse and new game instance");
     } catch (const std::exception &error) {
         std::fprintf(stderr, "panorama check: %s\n", error.what());
         status = 1;

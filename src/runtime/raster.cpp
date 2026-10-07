@@ -201,30 +201,13 @@ int Raster::coverage_estimate(const std::vector<GeoPoly> &polys, int windows, in
     return covered * 100 / (CW * CH);
 }
 
-bool Raster::find_race_hud(const std::vector<GeoPoly> &polys, int crtc_x, int crtc_y) {
-    for (const GeoPoly &poly : polys) {
-        if (poly.z > kHudOverlayZ || poly.texheader[0] != 0x8000 || poly.num_vertices < 3) continue;
-        float x0 = 1e9f, x1 = -1e9f, y0 = 1e9f, y1 = -1e9f;
-        for (int i = 0; i < poly.num_vertices; i++) { // as model2_3d_project
-            const GeoVertex &v = poly.v[i];
-            const float z = v.p[0] + std::numeric_limits<float>::min();
-            const float x = float(crtc_x + poly.center[0]) + v.x / z - float(margin_);
-            const float y = float((384 - poly.center[1]) + crtc_y) - v.y / z;
-            x0 = std::min(x0, x), x1 = std::max(x1, x), y0 = std::min(y0, y), y1 = std::max(y1, y);
-        }
-        if (x0 >= 375 && x1 <= 472 && y0 >= 57 && y1 <= 159 && x1 - x0 >= 60 && y1 - y0 >= 60) {
-            hud_box_[0] = x0, hud_box_[1] = x1, hud_box_[2] = y0, hud_box_[3] = y1;
-            hud_z_ = poly.z;
-            return true;
-        }
-    }
-    return false;
-}
-
 void Raster::render_one(GeoPoly poly, int crtc_x, int crtc_y, int render_x, int render_y, int clip_minx, int clip_maxx,
                         int clip_miny, int clip_maxy) {
     // Widescreen: a viewport spanning the screen extends into the side margins.
     const int wide = margin_ && poly.viewport[0] <= 0 && poly.viewport[2] >= 495 ? margin_ : 0;
+    const int hud_dx = hud_.polygon_shift(poly, crtc_x - margin_, crtc_y);
+    crtc_x += hud_dx;
+    render_x += hud_dx;
     // model2_3d_project
     for (int i = 0; i < poly.num_vertices; i++) {
         GeoVertex &v = poly.v[i];
@@ -232,22 +215,6 @@ void Raster::render_one(GeoPoly poly, int crtc_x, int crtc_y, int render_x, int 
         v.y = float((384 - poly.center[1]) + crtc_y) - (v.y / (v.p[0] + std::numeric_limits<float>::min()));
     }
 
-    // Widescreen, HUD at the edges: the condition panel's own overlay quads
-    // (its z, inside its box) move with the HUD; nothing else does.
-    if (hud_dx_ && poly.z == hud_z_) {
-        float x0 = poly.v[0].x, x1 = x0, y0 = poly.v[0].y, y1 = y0;
-        for (int i = 1; i < poly.num_vertices; i++) {
-            x0 = std::min(x0, poly.v[i].x), x1 = std::max(x1, poly.v[i].x);
-            y0 = std::min(y0, poly.v[i].y), y1 = std::max(y1, poly.v[i].y);
-        }
-        const float sx = float(margin_); // projected x includes the margin
-        constexpr float kTol = 1.5f;
-        if (x0 - sx >= hud_box_[0] - kTol && x1 - sx <= hud_box_[1] + kTol && y0 >= hud_box_[2] - kTol &&
-            y1 <= hud_box_[3] + kTol) {
-            for (int i = 0; i < poly.num_vertices; i++) poly.v[i].x += float(hud_dx_);
-            render_x += hud_dx_;
-        }
-    }
     // model2_3d_render
     Extra extra;
     const int renderer = (poly.texheader[0] >> 13) & 3;

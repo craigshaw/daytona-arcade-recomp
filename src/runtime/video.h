@@ -68,7 +68,8 @@ public:
     void set_hud_edges(bool on) {
         if (on == hud_edges_) return;
         hud_edges_ = on;
-        if (!on && hud_on_) { hud_on_ = false; set_raster_hud_moves(); render_done_ = false; }
+        if (!on) { hud_on_ = false; raster_.hud().clear(); }
+        render_done_ = false;
     }
     // Vita GPU-fast path: keep the exact CPU tile layers, but let the host
     // draw the 3D polygons. The normal desktop/CPU path remains the default.
@@ -84,9 +85,6 @@ public:
         desktop_ = desktop;
         render_done_ = false;
     }
-    // External 3D with widescreen and the HUD at the edges: how far the
-    // condition panel's overlay polygons move (0 = not at all), and which.
-    int gpu_hud_shift() const { return external_3d_ && hud_on_ ? margin_ : 0; }
     // Desktop hardware renderer, as of the last screen_update: tile RAM words
     // kGpuTileFirst.. (line scroll tables, scroll registers, window masks) and
     // the tilemaps' pens; the widescreen margin and how to fill it; whether the
@@ -207,7 +205,6 @@ private:
     uint16_t panorama_background_pen(int x, int y) const;
     bool hud_edges_ = false;
     bool hud_on_ = false;                      // the rasterizer is moving the HUD overlay polygons
-    void set_raster_hud_moves();
     // Scratch for copy_front_hud_to_edges (kept to avoid per-frame allocation).
     std::vector<uint8_t> hud_mask_, hud_tmp_;
     std::vector<int32_t> hud_label_, hud_move_;

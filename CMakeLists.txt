@@ -232,7 +232,7 @@ if(EXISTS ${GEN_DIR}/gen_table.cpp AND EXISTS ${TGP_GEN} AND EXISTS ${SND_GEN})
         add_executable(m2gpushot tools/m2gpushot/main.cpp ${GEN_SOURCES} ${TGP_GEN} ${SND_GEN})
         target_link_libraries(m2gpushot PRIVATE runtime gpurender)
         # Explicit local-ROM integration check; not part of ordinary builds.
-        add_executable(m2panoramacheck EXCLUDE_FROM_ALL tests/panorama_palette.cpp tests/panorama_play.cpp
+        add_executable(m2panoramacheck EXCLUDE_FROM_ALL tests/panorama_palette.cpp tests/panorama_play.cpp tests/hud_play.cpp
             src/app/config.cpp src/app/controls.cpp ${GEN_SOURCES} ${TGP_GEN} ${SND_GEN})
         target_link_libraries(m2panoramacheck PRIVATE runtime gpurender)
         add_executable(m2perfcheck EXCLUDE_FROM_ALL tests/performance_play.cpp src/app/performance.cpp
@@ -295,6 +295,10 @@ add_test(NAME app_performance COMMAND test_app_performance)
 add_executable(test_panorama tests/test_panorama.cpp)
 target_include_directories(test_panorama PRIVATE src)
 add_test(NAME panorama COMMAND test_panorama)
+
+add_executable(test_hud tests/test_hud.cpp)
+target_include_directories(test_hud PRIVATE src)
+add_test(NAME hud COMMAND test_hud)
 
 add_executable(test_scenery tests/test_scenery.cpp src/runtime/enhance.cpp)
 target_include_directories(test_scenery PRIVATE src)

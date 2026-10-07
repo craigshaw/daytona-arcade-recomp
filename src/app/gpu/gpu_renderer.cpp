@@ -259,10 +259,6 @@ void GpuRenderer::build(const rt::Video &video, int w, int h, int scale) {
     const int margin = (w - rt::Video::W) / 2;
     const int crtc_x = video.crtc_x() + margin, crtc_y = video.crtc_y(), render_x = video.render_x() + margin,
               render_y = video.render_y();
-    // HUD at the edges: the condition panel's own quads (its z, inside its box) move
-    const int hud_dx = video.gpu_hud_shift();
-    const float *hud_box = video.raster().hud_box();
-    const uint16_t hud_z = video.raster().hud_z();
     if (polys.empty() || !mem.palram || !mem.colorxlat) return;
     // internal resolution: the mip level the rasterizer picks from z, less
     // log2(scale) (its levels are 128 units of fast_log2)
@@ -284,21 +280,7 @@ void GpuRenderer::build(const rt::Video &video, int w, int h, int scale) {
         const int renderer = (poly.texheader[0] >> 13) & 3;
         if (renderer == 1) continue; // translucent solid: the rasterizer draws nothing
 
-        // HUD overlay quad? (Raster::render_one's test, on the projected outline)
-        int dx = 0;
-        if (hud_dx && poly.z == hud_z) {
-            float bx0 = 1e9f, bx1 = -1e9f, by0 = 1e9f, by1 = -1e9f;
-            for (int k = 0; k < poly.num_vertices; k++) {
-                const rt::GeoVertex &g0 = poly.v[k];
-                const float z = g0.p[0] + std::numeric_limits<float>::min();
-                const float px = float(crtc_x + poly.center[0]) + g0.x / z - float(margin);
-                const float py = float((384 - poly.center[1]) + crtc_y) - g0.y / z;
-                bx0 = std::min(bx0, px), bx1 = std::max(bx1, px), by0 = std::min(by0, py), by1 = std::max(by1, py);
-            }
-            constexpr float kTol = 1.5f;
-            if (bx0 >= hud_box[0] - kTol && bx1 <= hud_box[1] + kTol && by0 >= hud_box[2] - kTol && by1 <= hud_box[3] + kTol)
-                dx = hud_dx;
-        }
+        const int dx = video.raster().hud().polygon_shift(poly, video.crtc_x(), crtc_y);
         // clip rectangle (Raster::render_one), in the renderer's offsets, within the screen;
         // a viewport spanning the screen extends into the widescreen margins
         const int wide = margin && poly.viewport[0] <= 0 && poly.viewport[2] >= 495 ? margin : 0;
