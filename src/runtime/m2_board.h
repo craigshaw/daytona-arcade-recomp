@@ -95,6 +95,9 @@ public:
     // (double buffered, a new 3D picture each frame); 1 = every 2nd; 2 = every
     // 3rd. The game logic and the geometrizer still run every frame.
     void set_frame_skip(int skip) { frame_skip_ = skip < 0 ? 0 : skip > 2 ? 2 : skip; }
+    // Host catch-up: this update's picture will be superseded before present.
+    // One-shot; simulation, geometry, interrupts and sound still run normally.
+    void skip_next_screen_update() { skip_next_screen_update_ = true; }
     IoBoard &io() { return io_; }
     TgpBoard &tgp() { return tgp_; }
     // Bytes sent to the sound board since the last take.
@@ -140,6 +143,7 @@ private:
     std::unique_ptr<CommBoard> comm_board_; // link play only
     Cpu *cpu_ = nullptr;
     int frame_skip_ = 0;
+    bool skip_next_screen_update_ = false;
     uint64_t tex_generation_ = 0; // texture RAM writes so far
     Lockstep *ls_ = nullptr;
 

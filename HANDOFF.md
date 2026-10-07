@@ -2,6 +2,42 @@
 
 ## Current state
 
+**Software catch-up pictures coalesced (7 Oct 2026).** The desktop retains
+every simulation, geometry, interrupt and audio step but omits screen updates
+that a later scheduled picture replaces before presentation. The existing
+every-second/third-frame modes retain their last eligible picture, which can
+precede the final update. A one-shot board flag clears at vblank end, and
+omitted video timings reset to zero. Automatic in software mode at all
+aspects; hardware, native pacing, budget, profiler and settings are unchanged.
+
+Both Release builds and six focused CTests pass. Paired reference/candidate
+replays cover 5,400 updates per course in both revisions: 12,960 batches,
+native/16:9/32:9, all draw modes, four camera inputs, HUD toggles and renderer
+switches. Final software pixels, CPU/TGP execution counts, sampled RAM,
+audio samples and cabinet state match. Hardware preparation matches too;
+this fixture does not render GPU pixels or claim new MAME parity.
+
+Replaying the saved 1,024-row attract schedule twice reproduces every
+recorded polygon count and identical final output. Its 24 multi-update
+batches omit 26 superseded pictures. With builds and other replays finished:
+
+| CPU work, original -> coalesced | Pass 1 | Pass 2 |
+| --- | ---: | ---: |
+| Mean multi-update batch | 34.54 -> 17.89 ms | 34.60 -> 17.69 ms |
+| Three-update batch ending at frame 960 | 58.79 -> 23.44 ms | 57.68 -> 21.41 ms |
+
+These paired CPU-only timings exclude vsync, audio-device and pacing waits;
+they show about 62% less work in the captured worst batch, not that every
+live hitch is fixed. Individual raster frames still exceed 17.38 ms. Next:
+live 32:9 driving/attract feedback and another F9 capture if stutter remains,
+then measure the remaining raster cost. Compact logs, input/build hashes
+and the read-only cabinet snapshot are in ignored `traces/catchup-20261007/`.
+The fixture is `m2perfcheck --catchup IMAGES NVRAM CAPTURE.csv`, or replace
+the CSV with `--race INPUTS` for the transition checks. Early Revision A
+race logs label suppression requests as omitted pictures; some coincide
+with normal frame skips. The fixture wording is corrected; capture mode
+uses every-frame drawing, so all 26 there are additional omitted pictures.
+
 **Live stutter captured (7 Oct 2026, 20:55:53 BST).** Revision A, 32:9,
 software, first attract race: 1,003 updates over 17.43 s average 57.53 Hz,
 but 55 updates exceed 17.38 ms. At frame 960 a three-update catch-up batch
@@ -11,9 +47,8 @@ takes 60.00 ms, including 53.00 ms of CPU rasterisation; composition is only
 so count alone does not explain this workload. Preserved CSV:
 `traces/performance-captures/20261007-205553-daytona.csv`, SHA256
 `596088b120982da9f64949af4ea9f491b0bdc50c1f168c250bb11b421209c777`.
-Suggested next experiment: reproduce the attract section, render only the
-last update in a catch-up batch while preserving every simulation/audio
-step, then measure remaining raster cost. This is not implemented yet.
+This motivated the catch-up change above. Rendering fewer superseded
+pictures mitigates the batch amplification without changing the rasterizer.
 
 **HUD edge placement repaired (7 Oct 2026).** The existing launcher toggle
 now recognises Revision A's lower traffic panel as well as Deluxe '93's.
@@ -1603,6 +1638,9 @@ Also found:
 
 ## What not to re-propose
 
+- Drawing only the final update in every catch-up batch: with every-second/
+  third-frame drawing that update may be ineligible. Keep the last scheduled
+  picture instead; otherwise the presented result can stay stale.
 - SCSP for Daytona. It is the Model 1 sound board (MAME `model2o` config and
   the MiSTer core's working sound on hardware).
 - Five TGPs. One device; "5x" was a board-level package count.

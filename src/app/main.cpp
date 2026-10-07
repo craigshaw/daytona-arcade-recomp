@@ -15,6 +15,7 @@
 // toggles fullscreen. Controls are set in the launcher and saved.
 
 #include "app/config.h"
+#include "app/frame_batch.h"
 #include "app/ffb.h"
 #include "app/link_socket.h"
 #include "app/gpu/gpu_renderer.h"
@@ -429,7 +430,13 @@ int main(int argc, char **argv) {
         last = now;
         if (game && !in_launcher) {
             app::apply_video_settings(*game, cfg, gpu.ok());
+            unsigned updates_left = app::pending_updates(pending, frame_ns);
             while (pending >= frame_ns) {
+                // Preserve every guest/audio tick, but draw only the last
+                // scheduled software picture that this batch can present.
+                if (!game->board().video().external_3d() &&
+                    !app::keep_software_picture(game->board().frame(), updates_left, cfg.draw_mode))
+                    game->board().skip_next_screen_update();
                 game->run_frame(cfg.controls.sample(SDL_GetKeyboardState(nullptr), devices));
                 if (timing) sample.update(game->last_profile(), game->board().video().last_profile(), frame_ns);
                 else if (measuring) ++sample.updates;
@@ -443,6 +450,7 @@ int main(int argc, char **argv) {
                     }
                 }
                 pending -= frame_ns;
+                --updates_left;
                 new_frame = have_frame = true;
                 if (max_frames && game->frames() >= max_frames) running = false;
             }

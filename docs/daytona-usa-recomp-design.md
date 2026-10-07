@@ -185,6 +185,14 @@ and fills cached artwork into the side margins, resolving layer/window and
 scroll rules per row. The forced camera-sweep diagnostic retains full-width
 composition; replay and palette fixtures compare both paths pixel-for-pixel.
 
+Software catch-up batches render only the last scheduled picture before
+presentation. Every guest, geometry, interrupt and sound update still runs;
+only superseded screen updates are omitted. The every-second/third-frame
+draw modes retain their last eligible picture, even when it precedes the
+batch's final update. This host pacing optimisation is automatic, with no
+new setting or hardware-renderer change. Paired local-ROM replays compare
+final pixels, game memory and audio against the original batch processing.
+
 Desktop performance diagnostics are host-only and off at startup: F10 cycles
 FPS and broad stage timings, using the runtime's existing optional clocks.
 A fixed 1,024-row ring and text refreshed four times per second avoid live

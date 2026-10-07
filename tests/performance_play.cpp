@@ -17,7 +17,9 @@
 #include <stdexcept>
 
 static void require(bool ok) { if (!ok) throw std::runtime_error(SDL_GetError()); }
+int check_catchup(int argc, char **argv);
 int main(int argc, char **argv) {
+    if (argc > 1 && !std::strcmp(argv[1], "--catchup")) return check_catchup(argc - 2, argv + 2);
     if (argc < 7) {
         std::fprintf(stderr, "usage: m2perfcheck IMAGES NVRAM INPUTS ASPECT off|fps|timings OUTPUT_PREFIX [no-panorama|no-hud|skip] [--budget N] [--from N]\n");
         return 2;
