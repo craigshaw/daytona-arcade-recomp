@@ -62,6 +62,9 @@ private:
     size_t next_ = 0;
     bool free_run_ = false, poked_ = false;
     int taken_ = 0;
+    // Completed callback slots, reused so storage follows pending work
+    // rather than every callback since startup.
+    std::vector<size_t> free_calls_;
 };
 
 } // namespace rt

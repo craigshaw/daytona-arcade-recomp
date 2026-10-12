@@ -2,6 +2,47 @@
 
 ## Current state
 
+**Callback storage recycled (12 Oct 2026).** Work continues on
+`widescreen-32x9`; the upstream merge is preserved separately at `3088243`
+on `integration/upstream-main-20261008`. Desktop `Lockstep` previously kept
+every completed callback. At captured frame 23941 its vector grew from
+3,543,306 slots (216 MiB capacity) to 5,314,959 (324 MiB); instrumentation
+attributed 75.854 ms of 76.452 ms core time to that growth. This rules out
+scenery selection and host descheduling as the cause of this particular hitch.
+
+Completed callbacks now move into a local function before their slots are
+freed for reuse, following upstream's existing guarded implementation.
+Callbacks may safely schedule replacements while running. Event ordering,
+instruction counts and interrupts retain their existing rules; no new setting
+or profiler work. The free-slot member is last, matching upstream's layout.
+
+Both Release game builds and six focused CTests per revision pass. The new
+ROM-free scheduler regression checks ordering, captured-object lifetime,
+queue growth during a callback, interrupt replay and a million steady-state
+callbacks (zero allocated bytes after warmup). It rejects the old scheduler
+for growing storage. The IRQ fixture initially used a null bus; it now supplies
+the interrupt-table read that the CPU performs even for an immediate IRQ.
+
+The saved 12 Oct attract capture reproduces all 1,024 scene records. Against
+the same freshly built game objects, old versus recycled schedulers give
+57.527 -> 0.418 ms core and 69.330 -> 10.778 ms game work at frame 23941.
+Pixels and CPU/TGP instruction deltas match across every batch. Separate
+20,000-frame race replays in each ROM revision match all 8,000 batch records:
+CPU/TGP/sound counts, interrupts, UART counts, and hashes of RAM, audio,
+cabinet state, drive commands and retained pictures. They exercise native,
+16:9 and 32:9, frame skips, HUD toggles and camera inputs.
+A further 48,000-frame Deluxe '93 attract run matches all 19,200 batches,
+covering almost 14 minutes of game time with the same state checks.
+
+Evidence is in ignored `traces/callback-reuse-20261012/`. These are offscreen
+before/after checks, not new MAME parity or live presentation measurements;
+long replays omit most pictures until their final 1,000 frames. A temporary
+merge projection needs one conflict resolution in each scheduler file;
+making upstream's existing recycling unconditional passes the same scheduler
+test with desktop, `M2_DC_MEMORY` and `M2_FAST_GEN` builds on this host.
+The integration branch and PR worktree are unchanged. Next: live attract and
+driving feedback on these builds; retain F9 captures for any remaining hitches.
+
 **Software catch-up pictures coalesced (7 Oct 2026).** The desktop retains
 every simulation, geometry, interrupt and audio step but omits screen updates
 that a later scheduled picture replaces before presentation. The existing

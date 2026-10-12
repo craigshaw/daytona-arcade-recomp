@@ -296,6 +296,10 @@ add_executable(test_frame_batch tests/test_frame_batch.cpp)
 target_include_directories(test_frame_batch PRIVATE src)
 add_test(NAME frame_batch COMMAND test_frame_batch)
 
+add_executable(test_lockstep tests/test_lockstep.cpp)
+target_link_libraries(test_lockstep PRIVATE runtime)
+add_test(NAME lockstep COMMAND test_lockstep)
+
 add_executable(test_panorama tests/test_panorama.cpp)
 target_include_directories(test_panorama PRIVATE src)
 add_test(NAME panorama COMMAND test_panorama)
