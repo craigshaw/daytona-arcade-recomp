@@ -2,6 +2,45 @@
 
 ## Current state
 
+**Whole-car widescreen visibility implemented (12 Oct 2026).** Revision A's
+opponent selector at `0x95a0` first tests the directional cell bitmap
+`0x501520` (`0x9600`), then a fixed horizontal camera-space limit (`0x9658`).
+Rejected cars get visibility/LOD zero at `0x96b8`; the renderer never receives
+them. The scenery hook widens the draw list but leaves this bitmap alone.
+In an isolated 1366x384 attract replay (frames 480..1800), widening only the
+horizontal check restores 1,674 car/frame selections. At frame 480, selected
+opponents increase from 6 to 17 and the missing left-hand pack renders.
+Relaxing only the car's bitmap read as well restores another 282 selections;
+this confirms a second gate, but bypassing all cell exclusions is not a fix.
+The implementation keeps a host-owned 5x5 car-cell set, preserving course/grid
+exclusions independently of scenery distance/budget. Hooks before the cell
+bit test (`0x9608`, Deluxe '93 `0x8548`) and horizontal comparison (`0x9658`,
+Deluxe '93 `0x8598`) widen only those operands. The horizontal threshold uses
+integer arithmetic after the game's FP conversion; TGP results stay intact.
+Shared bitmaps, vertical/distance checks and sorting are untouched. The
+original car detail allocator still runs and can redistribute detail as more
+cars qualify. Native aspect and the headless original-selection control
+disable both hooks. No launcher setting was added.
+
+Both Release builds and six focused tests per revision pass. Native-aspect
+20,000-frame race/return-to-attract replays match the previous executable in
+all 1,159 sampled pixel, RAM, audio, instruction, interrupt and geometry/LOD
+records per revision. Eighteen 5,400-frame runs cover both revisions, three
+courses, 16:9/32:9, four camera inputs and live aspect/renderer transitions.
+Fourteen Direct3D 12 captures cover attract and all courses at both ratios.
+Across 1,321 fully drawn Revision A attract frames at 32:9, the first paired
+software run averages 12.77 -> 12.63 ms game work, with 95th percentile
+16.84 -> 16.79 ms. A reversed-order run has a much noisier baseline, so this
+does not establish a speedup or a worst-case bound. Mean polygon count rises
+1,359.7 -> 1,378.9; at frame 480, 6 -> 17 opponents share the original detail
+allowance (1,015 -> 1,042 total polygons). Live pacing remains to be checked.
+These are local-ROM regression checks, not new MAME parity or live pacing
+measurements. The updated software and GPU pictures restore the missing pack.
+Evidence, fixtures and comparison pictures: ignored
+`traces/car-visibility-20261012/`. Hook seeds require explicit regeneration;
+CMake alone does not regenerate guest code. Only generator-produced changed
+chunks were copied into the build tree. Next: live attract/race feedback.
+
 **Callback storage recycled (12 Oct 2026).** Work continues on
 `widescreen-32x9`; the upstream merge is preserved separately at `3088243`
 on `integration/upstream-main-20261008`. Desktop `Lockstep` previously kept

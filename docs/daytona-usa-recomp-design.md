@@ -248,6 +248,18 @@ Deluxe '93 panorama checks below do not extend that budget comparison. See
 [widescreen validation](widescreen-validation.md) for the reproducible
 capture procedure, measurements and remaining limits.
 
+**Widescreen opponent visibility (12 Oct 2026):** cars have their own
+directional-cell and horizontal-angle rejection before geometry submission.
+Both revisions now use enhancement hooks to admit a conservative 5x5 set of
+car cells, retaining course/grid exclusions, and widen the integer horizontal
+threshold in proportion to viewport width. The car-cell set is host-owned;
+the game's shared bitmaps remain untouched. Native aspect is a no-op, and
+scenery distance/budget overrides do not change the car-cell range. Vertical
+and distance checks, sorting and the original car-detail allocator still run.
+The Revision A attract proof restores 11 opponents in one frame without a
+budget increase. More admitted cars can redistribute the existing detail
+allowance; this milestone does not extend car draw distance or road coverage.
+
 **Seamless panorama proof (4 Oct 2026):** an opt-in Revision A Beginner
 experiment uses one cached 2048x512 test image and the existing background
 quad shader, retaining full camera-derived scroll before the tile hardware's
