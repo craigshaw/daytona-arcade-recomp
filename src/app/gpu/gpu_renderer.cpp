@@ -511,6 +511,7 @@ void GpuRenderer::render(SDL_GPUCommandBuffer *cmd, SDL_GPUTexture *target, int 
     tiledata_words_[4] = uint32_t(video.panorama().scroll_x());
     tiledata_words_[5] = rt::Panorama::SourceY;
     tiledata_words_[6] = video.panorama().source_height();
+    tiledata_words_[7] = uint32_t(video.title_checks());
     std::memcpy(&tiledata_words_[kTileHeader], video.gpu_pens(), rt::Video::kGpuPens * 4);
     std::memcpy(&tiledata_words_[kTileHeader + rt::Video::kGpuPens], video.gpu_tile_words(), rt::Video::kGpuTileWords * 2);
     const uint32_t tiledata_at = at;

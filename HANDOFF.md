@@ -2,6 +2,27 @@
 
 ## Current state
 
+**Title chequerboard extended (13 Oct 2026).** On `widescreen-32x9`, both
+renderers now repeat the title's original 64-pixel pattern into widescreen
+margins at y=0..39 and 344..383. Both ROMs use the same decoded layer-2
+layout. Recognition requires both complete bands, no scrolling/window
+masking and no 3D polygons; palette-independent checks retain game fades
+and reject partial uploads. Native view, central artwork, text and gradient
+rows are unchanged. No setting, guest hook, new asset or budget change.
+The shared shader was regenerated for all backends; Direct3D 12 was tested.
+
+Both Release builds and seven focused CTests per revision pass. Each ROM's
+12,000-frame attract replay covers three title visits (1,248 title frames).
+There are 220/224 software/GPU comparisons across all four widescreen ratios,
+including native-centre checks, renderer/aspect changes and palette fades;
+51 fallback comparisons per ROM also pass. Forty captures per ROM match the
+previous executable outside the intended title margins. Evidence and the
+local fixture are in ignored `traces/title-checks-20261013/`. Native-aspect
+20,000-frame race replays match all 1,159 sampled pixel, RAM, audio,
+instruction, interrupt and geometry/detail records per ROM. These are local
+regression checks, not new MAME validation. Next: live title-screen feedback.
+The saved integration branch and scenery PR worktree remain separate.
+
 **Whole-car widescreen visibility implemented (12 Oct 2026).** Revision A's
 opponent selector at `0x95a0` first tests the directional cell bitmap
 `0x501520` (`0x9600`), then a fixed horizontal camera-space limit (`0x9658`).

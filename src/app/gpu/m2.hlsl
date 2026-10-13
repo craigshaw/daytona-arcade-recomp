@@ -231,6 +231,8 @@ float4 ps_quad(QuadOut i) : SV_Target {
 // Optional original panorama: tiledata[3] enabled, [4] full scroll,
 // [5] source Y, [6] course height. Packed 2048-wide u16 palette indices/category
 // follow the four pixmaps in tilepix.
+// [7]: recognised title borders (TitleBackdrop): repeat layer 2's 64-pixel
+// pattern only in the side margins of the top/bottom 40 rows.
 [[vk::binding(0, 2)]] StructuredBuffer<uint> tilepix : register(t0, space2);
 [[vk::binding(1, 2)]] StructuredBuffer<uint> tiledata : register(t1, space2);
 
@@ -342,6 +344,8 @@ float4 ps_tiles_back(QuadOut i) : SV_Target {
     const int out_w = kTileW + 2 * margin;
     const int x = int(i.pos.x) / scale - margin, y = int(i.pos.y) / scale;
     if (tiledata[3] != 0u) return pen_color(tiledata[kTilePens + tile_back(x, y)]);
+    if (tiledata[7] != 0u && (x < 0 || x >= kTileW) && (y < 40 || y >= 344))
+        return pen_color(tiledata[kTilePens + (tile_pixel(2u, int(uint(x) & 63u), y) & 0xfffu)]);
     if (margin > 0 && fill == 2u) { // stretched: column (x + 0.5) * W / out - 0.5, blended
         const float u = clamp((float(x + margin) + 0.5) * float(kTileW) / float(out_w) - 0.5, 0.0, float(kTileW - 1));
         const int a = int(u), b = min(a + 1, kTileW - 1);

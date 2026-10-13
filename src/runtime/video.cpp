@@ -9,6 +9,7 @@
 // pixel rule as tilemap_t::draw with one scroll value).
 
 #include "runtime/video.h"
+#include "runtime/title_backdrop.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -420,6 +421,8 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         ++system24_texture_generation_;
         system24_source_dirty_ = false;
     }
+    title_checks_ = margin_ && polys.empty() &&
+        TitleBackdrop::matches(pixmap_[2].data(), flags_[2].data(), [this](unsigned i) { return tile(i); });
     // Refresh one placement for both renderers, including when switching from
     // hardware to software while the race HUD remains continuously visible.
     if (raster_.hud().update(hud_edges_, margin_, polys, crtc_x_, crtc_y_)) render_done_ = false;
@@ -794,6 +797,14 @@ void Video::fill_margins() {
     }
     for (int y = 0; y < H; ++y) {
         uint32_t *row = &screen_[size_t(y) * size_t(out)];
+        if (title_checks_ && TitleBackdrop::band(y)) {
+            const auto *source = pixmap_[2].data() + y * 512;
+            for (int x = 0; x < margin_; ++x) {
+                row[x] = pens_[source[TitleBackdrop::source_x(x - margin_)]];
+                row[margin_ + W + x] = pens_[source[TitleBackdrop::source_x(W + x)]];
+            }
+            continue;
+        }
         const uint32_t left = scene ? sky : row[margin_], right = scene ? sky : row[margin_ + W - 1];
         std::fill(row, row + margin_, left ? left : pens_[0]);
         std::fill(row + margin_ + W, row + out, right ? right : pens_[0]);
@@ -808,6 +819,7 @@ void Video::set_wide_margin(int margin) {
     margin = std::max(margin, 0);
     if (margin == margin_) return;
     margin_ = margin;
+    title_checks_ = false;
     hud_on_ = false;
     raster_.hud().clear();
     screen_.assign(size_t(width()) * H, 0u);

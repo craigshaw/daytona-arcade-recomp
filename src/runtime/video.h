@@ -96,6 +96,7 @@ public:
     int margin() const { return margin_; }
     enum class Backdrop { Edges, Sky, Stretch }; // fill_margins' three cases
     Backdrop backdrop() const { return !scene() ? Backdrop::Edges : stretch_backdrop_ ? Backdrop::Stretch : Backdrop::Sky; }
+    bool title_checks() const { return title_checks_; }
     bool cpu_front() const { return hud_on_; }
     uint64_t instance() const { return instance_; } // tells a new Video from an old one at the same address
     bool external_3d() const { return external_3d_; }
@@ -214,6 +215,7 @@ private:
     bool write_tracking_ = false, tile_memory_touched_ = false, character_memory_touched_ = false;
     Raster raster_;
     bool rendered_now_ = false, render_done_ = false;
+    bool title_checks_ = false; // recognised in the same snapshot as the GPU tile data
 };
 
 } // namespace rt

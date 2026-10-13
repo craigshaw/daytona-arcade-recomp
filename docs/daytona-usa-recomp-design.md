@@ -185,6 +185,14 @@ and fills cached artwork into the side margins, resolving layer/window and
 scroll rules per row. The forced camera-sweep diagnostic retains full-width
 composition; replay and palette fixtures compare both paths pixel-for-pixel.
 
+The title screen's widescreen margins repeat its original 64-pixel
+chequerboard pattern in the top and bottom 40 rows. A shared host check
+recognises both complete bands in unscrolled layer 2 before either renderer
+extends them; partial uploads, window masks and non-title frames retain the
+existing fill. Live palette indices preserve fades. The native centre,
+logos, text and gradient rows remain unchanged; no guest hooks or assets
+are added. Both revisions pass local software/Direct3D 12 comparisons.
+
 Software catch-up batches render only the last scheduled picture before
 presentation. Every guest, geometry, interrupt and sound update still runs;
 only superseded screen updates are omitted. The every-second/third-frame
