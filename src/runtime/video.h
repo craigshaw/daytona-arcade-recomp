@@ -14,6 +14,8 @@
 
 #include "runtime/raster.h"
 #include "runtime/panorama.h"
+#include "runtime/menu_backdrop.h"
+#include "runtime/engine_backdrop.h"
 #include "runtime/video_profile.h"
 
 #include <algorithm>
@@ -96,8 +98,10 @@ public:
     int margin() const { return margin_; }
     enum class Backdrop { Edges, Sky, Stretch }; // fill_margins' three cases
     Backdrop backdrop() const { return !scene() ? Backdrop::Edges : stretch_backdrop_ ? Backdrop::Stretch : Backdrop::Sky; }
-    bool title_checks() const { return title_checks_; }
-    bool cpu_front() const { return hud_on_; }
+    MenuBackdrop::Pattern menu_checks() const { return menu_checks_; }
+    bool cpu_front() const { return hud_on_ || engine_backdrop_.active(); }
+    EngineBackdrop &engine_backdrop() { return engine_backdrop_; }
+    const EngineBackdrop &engine_backdrop() const { return engine_backdrop_; }
     uint64_t instance() const { return instance_; } // tells a new Video from an old one at the same address
     bool external_3d() const { return external_3d_; }
     const std::vector<uint32_t> &background_layer() const { return background_gpu_; }
@@ -215,7 +219,8 @@ private:
     bool write_tracking_ = false, tile_memory_touched_ = false, character_memory_touched_ = false;
     Raster raster_;
     bool rendered_now_ = false, render_done_ = false;
-    bool title_checks_ = false; // recognised in the same snapshot as the GPU tile data
+    MenuBackdrop::Pattern menu_checks_ = MenuBackdrop::None; // same snapshot as the GPU tile data
+    EngineBackdrop engine_backdrop_;
 };
 
 } // namespace rt

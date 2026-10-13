@@ -2,6 +2,66 @@
 
 ## Current state
 
+**Engine-start artwork integrated (13 Oct 2026).** The approved
+wide composition is saved locally as `artwork/engine-start-approved.png`
+(SHA-256 `af6ba6fc52b4be7151bae34a4e2610d570e8cc098a30623f19d8dee696083b25`).
+The ignored artwork folder and copies beside both Release executables must
+remain uncommitted. `prepare_engine_backdrop.py` prepares palette-linked
+samples; the app loads optional `artwork/engine-start.d2bg` beside its executable.
+Missing/invalid files retain the existing rendering. No guest hooks changed.
+
+Widescreen uses the complete approved picture, including its lettering,
+with a centred crop for 16:10, 16:9 and 21:9 from the 32:9 composition.
+The user approved this after the original-centre preview restored the clipped
+car detail and left visible joins. Native aspect remains entirely original.
+The `D2BGv002` cache contains the whole picture; old sides-only caches are
+rejected. Both Release artwork copies use the complete version.
+
+Both ROMs share Beginner's complete decoded picture/flags fingerprint
+`11f65258c9c6ddac`. Unscrolled, unmasked layer 0 identifies it independently of
+palette fades. Advanced and Expert use different photographs, so they correctly
+do not activate this replacement; the first all-course test wrongly expected
+the Beginner picture everywhere. Live palette interpolation carries the
+original colour animation into the picture. The GPU uses its existing CPU
+overlay upload path; the software compositor uses the same sample function.
+
+Both Release builds and eight focused tests per revision pass. Six 6,000-frame
+course runs cover both ROMs: Beginner has 183/185 recognised frames and
+732/740 software/GPU and centred-crop comparisons across four wide ratios; the other
+courses retain their original backgrounds. Two 2x GPU checks and 356 fallback
+comparisons pass, along with full-palette fades and missing-file/reload checks.
+Both native 20,000-frame replays match all 1,159 sampled
+pixel/state records with the artwork installed. These are local regression
+checks, not new MAME validation. Evidence: `traces/engine-start-20261013/`.
+The selection-screen and engine-start changes are recorded together on
+`widescreen-32x9`. The saved integration branch and scenery PR worktree
+are untouched; artwork remains local and ignored.
+
+**Circuit/mission chequerboards extended (13 Oct 2026).** Building on title
+commit `59eef25` on `widescreen-32x9`, the shared `MenuBackdrop` recogniser
+now permits the select screens' inset 3D windows. Circuit select uses the
+title's 64-pixel repeat in y=0..39 and 344..383; mission select uses a
+16-pixel repeat in y=347..383, preserving blue on the left and red on the
+right. Only the margins change. No assets, guest hooks, settings or budgets.
+
+The old no-polygons gate excluded circuit select's map elements. Merely
+removing that gate is insufficient: mission artwork persists underneath
+the engine-start screen. Recognition now also checks whether either overlay
+conceals the native border edges, using its window, split and scroll state.
+Both complete repeating areas are required; the mission's central zigzag
+is excluded from sampling. Palette fades remain driven by live pens.
+
+Both Release builds and seven focused CTests per revision pass. Six
+6,000-frame course replays provide 1,680 software/GPU background comparisons
+at all four widescreen ratios, with native-centre and palette-fade checks;
+391 fallback comparisons and eight 2x GPU checks also pass. Fourteen full
+captures per ROM match the title build outside the intended border margins.
+The 12,000-frame attract/title checks still pass in each revision. Native
+20,000-frame race replays match all 1,159 sampled pixel/state records per ROM.
+Evidence: ignored `traces/select-checks-20261013/`. These are local regression
+checks, not new MAME validation. Both playable builds are ready for live menu
+feedback. The integration branch and scenery PR worktree remain unchanged.
+
 **Title chequerboard extended (13 Oct 2026).** On `widescreen-32x9`, both
 renderers now repeat the title's original 64-pixel pattern into widescreen
 margins at y=0..39 and 344..383. Both ROMs use the same decoded layer-2

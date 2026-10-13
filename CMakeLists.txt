@@ -304,9 +304,13 @@ add_executable(test_panorama tests/test_panorama.cpp)
 target_include_directories(test_panorama PRIVATE src)
 add_test(NAME panorama COMMAND test_panorama)
 
-add_executable(test_title_backdrop tests/test_title_backdrop.cpp)
-target_include_directories(test_title_backdrop PRIVATE src)
-add_test(NAME title_backdrop COMMAND test_title_backdrop)
+add_executable(test_menu_backdrop tests/test_menu_backdrop.cpp)
+target_include_directories(test_menu_backdrop PRIVATE src)
+add_test(NAME menu_backdrop COMMAND test_menu_backdrop)
+
+add_executable(test_engine_backdrop tests/test_engine_backdrop.cpp)
+target_include_directories(test_engine_backdrop PRIVATE src)
+add_test(NAME engine_backdrop COMMAND test_engine_backdrop)
 
 add_executable(test_hud tests/test_hud.cpp)
 target_include_directories(test_hud PRIVATE src)

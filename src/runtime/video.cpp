@@ -9,7 +9,6 @@
 // pixel rule as tilemap_t::draw with one scroll value).
 
 #include "runtime/video.h"
-#include "runtime/title_backdrop.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -421,8 +420,18 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         ++system24_texture_generation_;
         system24_source_dirty_ = false;
     }
-    title_checks_ = margin_ && polys.empty() &&
-        TitleBackdrop::matches(pixmap_[2].data(), flags_[2].data(), [this](unsigned i) { return tile(i); });
+    menu_checks_ = MenuBackdrop::None;
+    if (margin_ && engine_backdrop_.loaded()) {
+        const auto generation = *std::max_element(system24_tile_generations_.begin(), system24_tile_generations_.begin() + 4096);
+        engine_backdrop_.update(margin_, pixmap_[0].data(), flags_[0].data(), generation,
+                                [this](unsigned i) { return tile(i); });
+    } else engine_backdrop_.deactivate();
+    if (margin_ && (polys.empty() || windows > 1)) {
+        const auto word = [this](unsigned i) { return tile(i); };
+        const auto pattern = MenuBackdrop::detect(pixmap_[2].data(), flags_[2].data(), word);
+        if (pattern != MenuBackdrop::None &&
+            MenuBackdrop::uncovered(pattern, flags_[0].data(), flags_[1].data(), word)) menu_checks_ = pattern;
+    }
     // Refresh one placement for both renderers, including when switching from
     // hardware to software while the race HUD remains continuously visible.
     if (raster_.hud().update(hud_edges_, margin_, polys, crtc_x_, crtc_y_)) render_done_ = false;
@@ -442,18 +451,28 @@ void Video::screen_update(const std::vector<GeoPoly> &polys, int windows, const 
         for (uint32_t i = 0; i < kGpuTileWords; ++i) gpu_tile_words_[i] = tile(kGpuTileFirst + i);
         std::copy_n(pens_, kGpuPens, gpu_pens_.data());
         if (margin_) coverage_ = polys.empty() ? 0 : raster_.coverage_estimate(polys, windows, crtc_x_ + margin_, crtc_y_);
-        if (hud_on_) {
+        if (cpu_front()) {
             before = ticks();
-            std::fill(sys24_.begin(), sys24_.end(), 0u);
-            for (int layer = 3; layer >= 0; --layer) draw(sys24_, (layer << 1) | 1, 0);
             foreground_gpu_.assign(size_t(width()) * H, 0u);
-            copy_front_hud_to_edges(foreground_gpu_);
+            if (engine_backdrop_.active()) engine_backdrop_.compose(foreground_gpu_.data(), margin_, pens_);
+            else {
+                std::fill(sys24_.begin(), sys24_.end(), 0u);
+                for (int layer = 3; layer >= 0; --layer) draw(sys24_, (layer << 1) | 1, 0);
+                copy_front_hud_to_edges(foreground_gpu_);
+            }
             ++foreground_generation_;
             profile_.tile_draw += ticks() - before;
         }
         return;
     }
 #endif
+    if (engine_backdrop_.active()) {
+        before = ticks();
+        engine_backdrop_.compose(screen_.data(), margin_, pens_);
+        rendered_now_ = render_done_ = false;
+        profile_.composite += ticks() - before;
+        return;
+    }
     if (external_3d_ && !desktop_ && system24_gpu_compatible()) {
         // GXM composes the cached System-24 tile textures around the 3D
         // layer. Do not spend ~35 ms rebuilding CPU bitmaps for scrolling.
@@ -797,11 +816,11 @@ void Video::fill_margins() {
     }
     for (int y = 0; y < H; ++y) {
         uint32_t *row = &screen_[size_t(y) * size_t(out)];
-        if (title_checks_ && TitleBackdrop::band(y)) {
+        if (MenuBackdrop::band(menu_checks_, y)) {
             const auto *source = pixmap_[2].data() + y * 512;
             for (int x = 0; x < margin_; ++x) {
-                row[x] = pens_[source[TitleBackdrop::source_x(x - margin_)]];
-                row[margin_ + W + x] = pens_[source[TitleBackdrop::source_x(W + x)]];
+                row[x] = pens_[source[MenuBackdrop::source_x(menu_checks_, x - margin_)]];
+                row[margin_ + W + x] = pens_[source[MenuBackdrop::source_x(menu_checks_, W + x)]];
             }
             continue;
         }
@@ -819,7 +838,8 @@ void Video::set_wide_margin(int margin) {
     margin = std::max(margin, 0);
     if (margin == margin_) return;
     margin_ = margin;
-    title_checks_ = false;
+    menu_checks_ = MenuBackdrop::None;
+    engine_backdrop_.deactivate();
     hud_on_ = false;
     raster_.hud().clear();
     screen_.assign(size_t(width()) * H, 0u);

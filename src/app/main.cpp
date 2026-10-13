@@ -309,6 +309,11 @@ int main(int argc, char **argv) {
                 if (!have_audio) std::fprintf(stderr, "daytona: reference audio unavailable (%s)\n", SDL_GetError());
             }
             game = std::make_unique<rt::GameLoop>(std::move(images), !native_active);
+            if (const char *base = SDL_GetBasePath()) {
+                const std::string art = std::string(base) + "artwork/engine-start.d2bg";
+                if (game->board().video().engine_backdrop().load(art))
+                    std::printf("daytona: loaded local engine-start artwork\n");
+            }
             game->set_profile_clock(performance.detailed() ? profile_clock : nullptr);
             game->board().video().set_profile_clock(performance.detailed() ? profile_clock : nullptr);
             std::printf("daytona: audio backend %s\n", native_active

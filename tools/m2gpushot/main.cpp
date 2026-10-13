@@ -5,6 +5,7 @@
 //   m2gpushot IMAGES_DIR FRAMES --dump DIR --every N [--inputs scripts/inputs/X.txt]
 //             [--aspect W:H [--hud-edges] [--stretch-backdrop]] [--scale N] [--nvram DIR] [--dump-from FRAME]
 //             [--dump-tiles DIR] (local decoded layer/source snapshots at capture frames)
+//             [--engine-backdrop FILE] (optional local widescreen artwork)
 //             [--draw-distance N] [--draw-budget N] [--scenery-log FILE] [--original-selection]
 //   m2gpushot IMAGES_DIR FRAMES --bench [--inputs ...] [--aspect ...] [--scale N]
 //
@@ -44,7 +45,7 @@ int main(int argc, char **argv) {
     }
     const std::string dir = argv[1];
     const uint64_t frames = std::strtoull(argv[2], nullptr, 10);
-    std::string dump_dir, inputs_path, nvram_dir, scenery_log_path, sky_log_path, tile_dump_dir;
+    std::string dump_dir, inputs_path, nvram_dir, scenery_log_path, sky_log_path, tile_dump_dir, engine_backdrop_path;
     uint32_t draw_budget = 0;
     uint64_t every = 0, dump_from = 0, bench_from = 0;
     int scale = 1;
@@ -54,6 +55,10 @@ int main(int argc, char **argv) {
     for (int i = 3; i < argc; i++) {
         if (!std::strcmp(argv[i], "--draw-budget") && i + 1 == argc) {
             std::fprintf(stderr, "m2gpushot: --draw-budget needs a value\n");
+            return 2;
+        }
+        if (!std::strcmp(argv[i], "--engine-backdrop") && i + 1 == argc) {
+            std::fprintf(stderr, "m2gpushot: --engine-backdrop needs a file\n");
             return 2;
         }
         if (!std::strcmp(argv[i], "--bench")) bench = true;
@@ -85,6 +90,7 @@ int main(int argc, char **argv) {
         else if (!std::strcmp(argv[i], "--scenery-log")) scenery_log_path = argv[i + 1];
         else if (!std::strcmp(argv[i], "--sky-log")) sky_log_path = argv[i + 1];
         else if (!std::strcmp(argv[i], "--dump-tiles")) tile_dump_dir = argv[i + 1];
+        else if (!std::strcmp(argv[i], "--engine-backdrop")) engine_backdrop_path = argv[i + 1];
         else if (!std::strcmp(argv[i], "--draw-budget")) {
             if (!rt::parse_scenery_budget(argv[i + 1], draw_budget)) {
                 std::fprintf(stderr, "m2gpushot: --draw-budget needs 0 (Automatic) or 1..1000000\n");
@@ -155,6 +161,8 @@ int main(int argc, char **argv) {
         if (!nvram_dir.empty()) tools::load_nvram(game, nvram_dir);
         game.board().video().set_external_3d(true, true);
         game.set_aspect(aspect);
+        if (!engine_backdrop_path.empty() && !game.board().video().engine_backdrop().load(engine_backdrop_path))
+            throw std::runtime_error("cannot load engine-start artwork: " + engine_backdrop_path);
         game.set_hud_edges(hud_edges);
         game.set_stretch_backdrop(stretch);
         tools::Script script;
